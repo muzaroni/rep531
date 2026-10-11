@@ -25,7 +25,10 @@ try {
         await icon.decode();
         const canvas = document.createElement("canvas");
         canvas.width = canvas.height = size;
-        canvas.getContext("2d").drawImage(icon, 0, 0, size, size);
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#101010";
+        context.fillRect(0, 0, size, size);
+        context.drawImage(icon, 0, 0, size, size);
         return canvas.toDataURL("image/png").split(",")[1];
       },
       { data: image.toString("base64"), size },

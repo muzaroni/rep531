@@ -5,8 +5,8 @@ export function BrandIcon({ size = 104 }: { size?: number }) {
   return (
     <svg
       width={size}
-      height={(size * 610) / 1054}
-      viewBox="100 325 1054 610"
+      height={(size * 640) / 1215}
+      viewBox="20 365 1215 640"
       aria-hidden="true"
     >
       <defs>
@@ -17,8 +17,14 @@ export function BrandIcon({ size = 104 }: { size?: number }) {
             values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 -1 1 0 -.08"
             result="mask"
           />
+          <feComposite
+            in="mask"
+            in2="SourceAlpha"
+            operator="in"
+            result="cutout"
+          />
           <feFlood floodColor="var(--text, #f2f2f2)" result="color" />
-          <feComposite in="color" in2="mask" operator="in" />
+          <feComposite in="color" in2="cutout" operator="in" />
         </filter>
         <filter id="rep531-accent" colorInterpolationFilters="sRGB">
           <feColorMatrix
@@ -27,8 +33,14 @@ export function BrandIcon({ size = 104 }: { size?: number }) {
             values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 1.35 -1.35 0 -.03"
             result="mask"
           />
+          <feComposite
+            in="mask"
+            in2="SourceAlpha"
+            operator="in"
+            result="cutout"
+          />
           <feFlood floodColor="var(--accent, #a6f629)" result="color" />
-          <feComposite in="color" in2="mask" operator="in" />
+          <feComposite in="color" in2="cutout" operator="in" />
         </filter>
       </defs>
       <image
