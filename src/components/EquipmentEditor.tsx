@@ -1,3 +1,4 @@
+import { Input } from "./ui/shadcn/input";
 import { useState } from "react";
 import { type Settings } from "../domain/model";
 type Props = { settings: Settings; update: (patch: Partial<Settings>) => void };
@@ -8,17 +9,17 @@ export function EquipmentEditor({ settings, update }: Props) {
   });
   return (
     <section className="equipment-settings">
-      <h3 className="settings-subheading">Plates</h3>
+      <p className="plate-unit-indicator">Using <strong>{settings.units === "lb" ? "Pounds (lb)" : "Kilograms (kg)"}</strong></p>
       <p className="subtle">
         Olympic bar · 45 lb / 20 kg. List available plate sizes as matching
         pairs.
       </p>
       <div className="equipment-grid">
         {(["lb", "kg"] as const).map((unit) => (
-          <label className="stack-field" key={unit}>
-            {unit === "lb" ? "Pound plates" : "Kilogram plates"}
-            {settings.units === unit ? " · in use" : ""}
-            <input
+          <label className="stack-field plate-bank" key={unit} data-active={settings.units === unit}>
+            <span className="plate-bank-label">{unit === "lb" ? "Pound plates · lb" : "Kilogram plates · kg"}
+            {settings.units === unit && <strong className="plate-bank-active">In use</strong>}</span>
+            <Input
               aria-label={`Available ${unit} plates`}
               value={plateText[unit]}
               onChange={(e) => {

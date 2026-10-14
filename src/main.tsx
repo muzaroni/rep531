@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import App from "./App";
 import "./styles.css";
+import "./shadcn.css";
 function Root() {
   const {
     offlineReady: [offlineReady, setOfflineReady],

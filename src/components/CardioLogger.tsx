@@ -1,3 +1,4 @@
+import { DatePicker } from "./ui/shadcn/date-picker";
 import { useEffect, useRef, useState } from "react";
 import { Bike, Check, Footprints, X } from "lucide-react";
 import { type AppState } from "../domain/model";
@@ -141,8 +142,7 @@ export function CardioLogger({
         <div className="two-fields">
           <label className="stack-field">
             Date
-            <input
-              type="date"
+            <DatePicker
               name="date"
               defaultValue={calendarDate(new Date())}
               required

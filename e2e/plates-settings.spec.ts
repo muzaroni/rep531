@@ -1,0 +1,33 @@
+import { test, expect, waitForSettingsAutosave } from './fixtures';
+import { openSettingsGroup } from './settings-navigation';
+
+test('Plates shows the active unit and rounding changes only new workouts', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsGroup(page, 'plates');
+  await expect(page.locator('.plate-unit-indicator')).toHaveText('Using Pounds (lb)');
+  await expect(page.locator('.plate-bank[data-active="true"]')).toContainText('Pound plates · lb');
+  await expect(page.locator('.plate-bank-active')).toHaveText('In use');
+  await expect(page.getByLabel('Warmup (seconds)', { exact: true })).toBeHidden();
+  await page.getByLabel('When a workout load cannot be exact', { exact: true }).selectOption('up');
+  await waitForSettingsAutosave(page);
+  await openSettingsGroup(page, 'timers');
+  await expect(page.getByLabel('Warmup (seconds)', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Available lb plates', { exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Overview', exact: true }).click();
+  await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+  await expect(page.getByLabel('working set 1 weight', { exact: true })).toHaveValue('150');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsGroup(page, 'plates');
+  await page.getByLabel('When a workout load cannot be exact', { exact: true }).selectOption('down');
+  await waitForSettingsAutosave(page);
+  await page.reload();
+  await page.getByRole('button', { name: 'Resume workout', exact: true }).click();
+  await expect(page.getByLabel('working set 1 weight', { exact: true })).toHaveValue('150');
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Discard workout', exact: true }).click();
+  await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+  await expect(page.getByLabel('working set 1 weight', { exact: true })).toHaveValue('145');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});

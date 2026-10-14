@@ -1,14 +1,19 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
-const nav = async (page: import("@playwright/test").Page, name: string) =>
-  page.getByRole("button", { name, exact: true }).click();
+const nav = async (page: import("@playwright/test").Page, name: string) => {
+  if (name === "Delete from all days") {
+    const details = page.locator(".accessory-inline-details");
+    if (!(await details.evaluate(element => (element as HTMLDetailsElement).open))) await details.locator("summary").click();
+  }
+  const button = page.getByRole("button", { name, exact: true });
+  if (name.startsWith("Edit ") && (await button.getAttribute("aria-expanded")) === "true") return;
+  await button.click();
+};
 const save = async (page: import("@playwright/test").Page) => {
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Settings saved" }),
+    page.locator(".settings-autosave"),
   ).toBeVisible();
 };
 
@@ -29,22 +34,16 @@ test("saved daily selections update an existing workout, group sets, and survive
   await nav(page, "Dismiss timer");
   await nav(page, "Settings");
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   await openSettingsGroup(page, "accessories");
-  await page
-    .getByRole("checkbox", {
-      name: "Squat accessory Hanging leg raise",
-      exact: true,
-    })
-    .uncheck();
+  await nav(page, "Unselect Hanging leg raise for Squat");
   for (const name of ["Push up", "Lat pulldown"]) {
     await openSettingsGroup(page, "accessories");
     await page
-      .getByRole("checkbox", { name: `Squat accessory ${name}`, exact: true })
-      .check();
+      .getByRole("button", { name: `Add ${name}`, exact: true })
+      .click();
   }
   await openSettingsGroup(page, "accessories");
-  await nav(page, "Edit library Lat pulldown");
+  await nav(page, "Edit Lat pulldown");
   for (const [field, value] of [
     ["sets", "2"],
     ["reps", "12"],
@@ -91,11 +90,6 @@ test("saved daily selections update an existing workout, group sets, and survive
     .getByRole("button", { name: "Arrange Lat pulldown", exact: true })
     .press("ArrowUp");
   await save(page);
-  await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "Current workout accessories updated" }),
-  ).toBeVisible();
   await nav(page, "Workout");
   await expect(page.locator(".accessory-workout-heading h3")).toHaveText([
     "Lat pulldown",
@@ -169,7 +163,6 @@ test("mobile accessory library searches, filters, bounds scrolling, edits and re
     page.locator(".selected-accessory .accessory-edit strong"),
   ).toHaveText(["Hanging leg raise"]);
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   const search = page.getByRole("searchbox", {
     name: "Search accessories",
     exact: true,
@@ -178,25 +171,21 @@ test("mobile accessory library searches, filters, bounds scrolling, edits and re
   await openSettingsGroup(page, "accessories");
   await expect(page.locator(".library-row")).toHaveCount(3);
   await openSettingsGroup(page, "accessories");
-  await page
-    .getByRole("combobox", { name: "Filter accessory category", exact: true })
-    .selectOption("push");
+  await page.getByRole("button", { name: "Push", exact: true }).click();
   await expect(
     page.getByText("No matches. Try another search or add a new exercise.", {
       exact: true,
     }),
   ).toBeVisible();
   await openSettingsGroup(page, "accessories");
-  await page
-    .getByRole("combobox", { name: "Filter accessory category", exact: true })
-    .selectOption("pull");
+  await page.getByRole("button", { name: "Pull", exact: true }).click();
   await openSettingsGroup(page, "accessories");
   await page
-    .getByRole("checkbox", { name: "Squat accessory Biceps curl", exact: true })
-    .check();
+    .getByRole("button", { name: "Add Biceps curl", exact: true })
+    .click();
   await nav(page, "Edit Biceps curl");
-  const dialog = page.getByRole("dialog", {
-    name: "Edit exercise",
+  const dialog = page.getByRole("group", {
+    name: "Edit Biceps curl",
     exact: true,
   });
   await expect(dialog).toBeVisible();
@@ -210,9 +199,7 @@ test("mobile accessory library searches, filters, bounds scrolling, edits and re
   ).toContainText("4 × 10");
   await search.fill("");
   await openSettingsGroup(page, "accessories");
-  await page
-    .getByRole("combobox", { name: "Filter accessory category", exact: true })
-    .selectOption("all");
+  await page.getByRole("button", { name: "All", exact: true }).click();
   expect(
     await page
       .locator(".accessory-results")
@@ -240,11 +227,8 @@ test("mobile accessory library searches, filters, bounds scrolling, edits and re
   ).toHaveText(["Lat pulldown"]);
   await openSettingsGroup(page, "accessories");
   await page
-    .getByRole("checkbox", {
-      name: "Bench press accessory Biceps curl",
-      exact: true,
-    })
-    .check();
+    .getByRole("button", { name: "Add Biceps curl", exact: true })
+    .click();
   await nav(page, "Edit Biceps curl");
   await nav(page, "Delete from all days");
   await openSettingsGroup(page, "accessories");
@@ -285,10 +269,6 @@ test("overview stays compact and shows active prescription after main settings c
   await page
     .getByRole("spinbutton", { name: "Squat training max", exact: true })
     .fill("300");
-  await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("blue");
   await save(page);
   await nav(page, "Overview");
   await expect(page.locator(".overview-main-sets strong")).toHaveText([
@@ -296,20 +276,9 @@ test("overview stays compact and shows active prescription after main settings c
     "170 lb",
     "190 lb",
   ]);
-  await expect(page.locator(".overview-tm strong")).toHaveText("225 lb");
+  await expect(page.locator(".overview-tm")).toHaveCount(0);
   await page.screenshot({
-    path: "test-results/lean-blue-overview.png",
-    fullPage: true,
-  });
-  await nav(page, "Settings");
-  await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("orange");
-  await save(page);
-  await nav(page, "Overview");
-  await page.screenshot({
-    path: "test-results/lean-orange-overview.png",
+    path: "test-results/lean-horizon-overview.png",
     fullPage: true,
   });
 });
@@ -320,21 +289,15 @@ test("ten leg presets can be assigned without changing other days", async ({
   await page.goto("./");
   await nav(page, "Settings");
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   await openSettingsGroup(page, "accessories");
-  await page
-    .getByRole("combobox", { name: "Filter accessory category", exact: true })
-    .selectOption("legs");
+  await page.getByRole("button", { name: "Legs", exact: true }).click();
   await openSettingsGroup(page, "accessories");
   await expect(page.locator(".library-row")).toHaveCount(10);
   await openSettingsGroup(page, "accessories");
   await page
-    .getByRole("checkbox", { name: "Squat accessory Leg press", exact: true })
-    .check();
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
+    .getByRole("button", { name: "Add Leg press", exact: true })
     .click();
+  await waitForSettingsAutosave(page);
   await nav(page, "Overview");
   await nav(page, "Start workout");
   await expect(
@@ -347,3 +310,4 @@ test("ten leg presets can be assigned without changing other days", async ({
     page.locator(".selected-accessory").filter({ hasText: "Leg press" }),
   ).toBeVisible();
 });
+

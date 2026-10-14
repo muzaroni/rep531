@@ -1,9 +1,10 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 const nav = async (page: import("@playwright/test").Page, name: string) =>
   page.getByRole("button", { name, exact: true }).click();
 
-test("accessory set controls persist counts, preserve completed work, and support zero sets", async ({
+test("accessory set controls persist counts, preserve completed work, and remove empty exercises", async ({
   page,
 }) => {
   await page.goto("./");
@@ -43,10 +44,7 @@ test("accessory set controls persist counts, preserve completed work, and suppor
     "Abs · 4 sets",
   );
   await nav(page, "Settings");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await nav(page, "Workout");
   await expect(page.locator(".accessory-workout-heading small")).toHaveText(
     "Abs · 4 sets",
@@ -71,15 +69,14 @@ test("accessory set controls persist counts, preserve completed work, and suppor
     .getByRole("checkbox", { name: "Complete accessory set 1", exact: true })
     .uncheck();
   await nav(page, "Remove set from Hanging leg raise");
-  await expect(page.locator(".accessory-workout-heading small")).toHaveText(
-    "Abs · 0 sets",
-  );
+  await expect(page.locator(".accessory-workout-heading")).toHaveCount(0);
   await page.reload();
   await nav(page, "Resume workout");
-  await expect(page.locator(".accessory-workout-heading small")).toHaveText(
-    "Abs · 0 sets",
-  );
-  await nav(page, "Add set to Hanging leg raise");
+  await expect(page.locator(".accessory-workout-heading")).toHaveCount(0);
+  await nav(page, "Add accessory");
+  await page.getByLabel("Search accessories").fill("Hanging");
+  await nav(page, "Add Hanging leg raise");
+  await nav(page, "Done");
   await expect(
     page.getByRole("spinbutton", {
       name: "accessory set 1 weight",
@@ -116,14 +113,7 @@ test("compact lift rows keep prescription inline, compress plate counts and fit 
   await page
     .getByRole("textbox", { name: "Available lb plates", exact: true })
     .fill("25, 10, 5");
-  await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("orange");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await nav(page, "Overview");
   await nav(page, "Start workout");
   await page

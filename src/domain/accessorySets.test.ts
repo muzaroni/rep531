@@ -7,8 +7,26 @@ import {
   workoutAccessoryGroups,
 } from "./accessorySets";
 import { syncWorkoutAccessories } from "./workoutAccessories";
+import { addWorkoutAccessory } from "./addWorkoutAccessory";
 
 describe("per-workout accessory set counts", () => {
+  it("keeps session additions through reconciliation, without editing day assignments", () => {
+    const state = defaults();
+    const before = structuredClone(state.settings);
+    let workout = makeWorkout(state);
+    workout.units = "kg";
+    state.settings.accessories.find(exercise => exercise.id === "lat")!.weight = 50;
+    workout = addWorkoutAccessory(workout, state.settings, "lat");
+    expect(workout.sets.filter(set => set.accessoryId === "lat")).toHaveLength(5);
+    expect(workout.sets.find(set => set.accessoryId === "lat")!.weight).toBe(22.5);
+    expect(addWorkoutAccessory(workout, state.settings, "lat")).toBe(workout);
+    const resumed = syncWorkoutAccessories(workout, state.settings, state.settings);
+    expect(resumed.sets.filter(set => set.accessoryId === "lat")).toHaveLength(5);
+    expect(state.settings.accessoryAssignments).toEqual(before.accessoryAssignments);
+    for (let i = 0; i < 5; i++) workout = changeAccessorySetCount(workout, "id:lat", -1);
+    expect(syncWorkoutAccessories(workout, state.settings, state.settings).sets.some(set => set.accessoryId === "lat")).toBe(false);
+    expect(addWorkoutAccessory(workout, state.settings, "lat").sets.filter(set => set.accessoryId === "lat")).toHaveLength(5);
+  });
   it("adds a fresh unfinished set using the last set's values without changing other exercises", () => {
     const state = defaults();
     state.settings.accessoryAssignments.squat = ["abs", "lat"];

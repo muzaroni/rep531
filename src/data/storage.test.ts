@@ -47,7 +47,7 @@ describe("local persistence and backups", () => {
     expect((await loadState(db)).settings.skipDeload).toBe(false);
   });
   it.each(["blue", "starry", "horizon"] as const)(
-    "round-trips settings, active workout, history and cardio with %s theme",
+    "converts %s theme saves to Event Horizon without changing training data",
     async (accent) => {
       let s = defaults();
       s.active = makeWorkout(s);
@@ -64,13 +64,23 @@ describe("local persistence and backups", () => {
       });
       s.settings.accent = accent;
       await saveState(s, db);
-      expect(await loadState(db)).toEqual(s);
+      const expected = structuredClone(s);
+      expected.settings.accent = "horizon";
+      expect(await loadState(db)).toEqual(expected);
       await db.state.clear();
-      expect(await restoreBackup(exportBackup(s), db)).toEqual(s);
-      expect(await loadState(db)).toEqual(s);
+      expect(JSON.parse(exportBackup(s)).settings.accent).toBe("horizon");
+      expect(await restoreBackup(JSON.stringify(s), db)).toEqual(expected);
+      expect(await loadState(db)).toEqual(expected);
       expect(exportMarkdown(s)).toContain("Walk · 25 min");
     },
   );
+  it("upgrades an existing legacy theme in Dexie once", async () => {
+    const legacy = defaults();
+    legacy.settings.accent = "orange";
+    await db.state.put({ id: "main", value: legacy });
+    expect((await loadState(db)).settings.accent).toBe("horizon");
+    expect((await db.state.get("main"))?.value.settings.accent).toBe("horizon");
+  });
   it.each(["not json", "{}", '{"schemaVersion":2}'])(
     "rejects malformed imports without data loss: %s",
     async (raw) => {

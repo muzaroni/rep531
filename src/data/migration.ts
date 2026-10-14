@@ -66,13 +66,17 @@ function applyAccessoryDefaults(state: AppState): AppState {
     },
   };
 }
+function useEventHorizon(state: AppState): AppState {
+  if (state.settings.accent === "horizon") return state;
+  return { ...state, settings: { ...state.settings, accent: "horizon" } };
+}
 export function upgradeState(value: unknown): AppState {
   if (
     typeof value !== "object" ||
     value === null ||
     !("schemaVersion" in value)
   )
-    return stateSchema.parse(value);
+    return useEventHorizon(stateSchema.parse(value));
   if (value.schemaVersion === 2) {
     const oldSchema = stateBaseSchema.extend({
       schemaVersion: z.literal(2),
@@ -92,8 +96,7 @@ export function upgradeState(value: unknown): AppState {
       upgraded.settings.accessories,
     );
     upgraded.settings.legPresetVersion = 1;
-    if (upgraded.settings.accent === "pink") upgraded.settings.accent = "blue";
-    return stateSchema.parse(applyAccessoryDefaults(upgraded));
+    return useEventHorizon(stateSchema.parse(applyAccessoryDefaults(upgraded)));
   }
   if (value.schemaVersion !== 1) {
     const current = stateSchema.parse(value);
@@ -104,7 +107,7 @@ export function upgradeState(value: unknown): AppState {
       );
       current.settings.legPresetVersion = 1;
     }
-    return stateSchema.parse(applyAccessoryDefaults(current));
+    return useEventHorizon(stateSchema.parse(applyAccessoryDefaults(current)));
   }
   const old = legacyState.parse(value),
     equipment = defaultEquipment();

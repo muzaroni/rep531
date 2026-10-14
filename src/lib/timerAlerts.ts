@@ -19,7 +19,7 @@ export async function alertTimerComplete(
 ) {
   if (settings.timerAlerts.sound) {
     try {
-      playChime(settings.chime);
+      playChime(settings.chime, 10);
     } catch {
       /* Browser may block audio. */
     }

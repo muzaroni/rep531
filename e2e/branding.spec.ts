@@ -53,21 +53,12 @@ test("REP531 identity and install icons work at root and repository subpaths", a
     new URL(artwork!, page.url()).href,
   );
   expect(artworkResponse.ok()).toBe(true);
-  for (const [theme, accent] of [
-    ["lime", "rgb(196, 255, 36)"],
-    ["blue", "rgb(54, 185, 255)"],
-    ["orange", "rgb(255, 140, 38)"],
-    ["starry", "rgb(216, 232, 255)"],
-    ["horizon", "rgb(203, 213, 225)"],
-  ]) {
-    const colors = await page.evaluate((selectedTheme) => {
-      document.documentElement.dataset.theme = selectedTheme;
-      return [...document.querySelectorAll(".brand-mark feFlood")].map(
-        (flood) => getComputedStyle(flood).floodColor,
-      );
-    }, theme);
-    expect(colors[1]).toBe(accent);
-  }
+  const colors = await page.evaluate(() =>
+    [...document.querySelectorAll(".brand-mark feFlood")].map(
+      (flood) => getComputedStyle(flood).floodColor,
+    ),
+  );
+  expect(colors[1]).toBe("rgb(184, 145, 4)");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     if (width <= 700) {

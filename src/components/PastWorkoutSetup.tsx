@@ -1,3 +1,4 @@
+import { DatePicker } from "./ui/shadcn/date-picker";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { names, type AppState, type Lift, type Workout } from "../domain/model";
@@ -74,15 +75,12 @@ export function PastWorkoutSetup({
         </p>
         <label className="stack-field">
           Workout date
-          <input
+          <DatePicker
             autoFocus
-            type="date"
             required
             max={today}
             value={input.date}
-            onChange={(event) =>
-              setInput({ ...input, date: event.target.value })
-            }
+            onChange={(date) => setInput({ ...input, date })}
           />
         </label>
         <div className="past-workout-fields">

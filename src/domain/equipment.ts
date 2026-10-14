@@ -46,6 +46,7 @@ export function nearestLoad(
   weight: number,
   equipment: Equipment,
   increment: number,
+  direction: "nearest" | "up" | "down" = "nearest",
 ) {
   const bar = equipment.bars[equipment.barIndex].weight;
   const upper = Math.min(
@@ -61,6 +62,8 @@ export function nearestLoad(
     if (counts[n] >= 0) {
       const total = Math.round((bar + (n * step) / 50) * 100) / 100,
         distance = Math.abs(total - weight);
+      if (direction === "up" && total < weight - 1e-8) continue;
+      if (direction === "down" && total > weight + 1e-8) continue;
       // Prefer the heavier candidate for exact ties, matching normal rounding.
       if (distance <= fallbackDistance + 1e-8) {
         fallback = total;
@@ -76,5 +79,7 @@ export function nearestLoad(
     }
   // Odd specialty bars may have no load aligned with the requested increment.
   // Actual, balanced equipment takes precedence over an impossible increment.
-  return Number.isFinite(bestDistance) ? best : fallback;
+  if (Number.isFinite(bestDistance)) return best;
+  if (Number.isFinite(fallbackDistance)) return fallback;
+  return direction === "up" ? plateLoad(upper, bar, equipment.plates).actual : bar;
 }

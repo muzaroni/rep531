@@ -38,6 +38,7 @@ test("new cycle reviews maxes and variation, cancellation is safe and increases 
   await click(page, "Start workout");
   const setup = page.getByRole("dialog", { name: "Set up cycle 2" });
   await expect(setup).toBeVisible();
+  await expect(setup.getByRole("combobox", { name: "Cycle variation", exact: true })).toHaveValue("normal");
   await expect(setup.getByLabel("Squat cycle training max")).toHaveValue("235");
   await click(page, "Cancel");
   await page.reload();
@@ -61,8 +62,11 @@ test("new cycle reviews maxes and variation, cancellation is safe and increases 
   await page.screenshot({ path: "test-results/cycle-setup-mobile.png" });
   await click(page, "Start cycle 2");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("235 lb", { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel("working set 1 weight", { exact: true })).toHaveValue("155");
   await expect(page.locator("main")).toContainText("Deadlift");
+  await click(page, "Settings");
+  await openSettingsGroup(page, "program");
+  await expect(page.getByLabel("Current cycle variation", { exact: true })).toHaveText("BBB Swap");
   await page.reload();
   await click(page, "Resume workout");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -77,5 +81,5 @@ test("custom cycle maxes are rounded to plate loading", async ({ page }) => {
   await page.getByLabel("Training max approach").selectOption("custom");
   await page.getByLabel("Squat cycle training max").fill("232");
   await click(page, "Start cycle 2");
-  await expect(page.getByText("230 lb", { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel("working set 1 weight", { exact: true })).toHaveValue("150");
 });

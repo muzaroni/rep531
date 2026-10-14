@@ -24,7 +24,7 @@ describe("timer alerts", () => {
     const settings = defaults().settings;
     settings.timerAlerts.notifications = true;
     await alertTimerComplete(settings, "timer-one", "Squat: 100 kg × 5");
-    expect(playChime).toHaveBeenCalledWith(settings.chime);
+    expect(playChime).toHaveBeenCalledWith(settings.chime, 10);
     expect(vibrate).toHaveBeenCalledTimes(1);
     expect(showNotification).toHaveBeenCalledWith(
       "Rest complete",

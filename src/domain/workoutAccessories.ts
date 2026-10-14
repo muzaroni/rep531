@@ -103,6 +103,16 @@ export function syncWorkoutAccessories(
     }
   }
   // Removing an exercise never removes work that was already completed.
+  // Explicit additions made in this workout survive resume and unrelated settings edits.
+  for (const [key, override] of Object.entries(workout.accessorySetOverrides ?? {})) {
+    const id = override.template.accessoryId;
+    if (!id || previous.accessoryAssignments[workout.lift].includes(id) || next.accessoryAssignments[workout.lift].includes(id)) continue;
+    overrides[key] = override;
+    for (const set of original.filter(set => accessoryGroupKey(set) === key && !used.has(set.id))) {
+      used.add(set.id);
+      accessories.push(set);
+    }
+  }
   accessories.push(...original.filter((set) => set.done && !used.has(set.id)));
   return {
     ...workout,

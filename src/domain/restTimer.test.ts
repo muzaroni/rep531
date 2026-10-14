@@ -7,11 +7,21 @@ import {
   pauseRestTimer,
   resumeRestTimer,
   extendRestTimer,
+  shortenRestTimer,
   nextTimerSet,
   restTimerSchema,
   timerPlates,
 } from "./restTimer";
 describe("rest timer", () => {
+  it("subtracts time while running or paused, preserving a valid final second", () => {
+    const running = startRestTimer(60, 1000);
+    expect(timerSeconds(shortenRestTimer(running, 15, 11000), 11000)).toBe(35);
+    const paused = pauseRestTimer(running, 11000);
+    expect(timerSeconds(shortenRestTimer(paused, 15, 11000), 999999)).toBe(35);
+    const minimum = shortenRestTimer(paused, 99, 11000);
+    expect(timerSeconds(minimum, 11000)).toBe(1);
+    expect(restTimerSchema.safeParse(minimum).success).toBe(true);
+  });
   it("uses wall-clock time through pause, resume, extension and expiry", () => {
     let timer = startRestTimer(60, 1000);
     expect(timerSeconds(timer, 11500)).toBe(50);

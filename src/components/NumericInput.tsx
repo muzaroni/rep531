@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
+import { Input } from "./ui/shadcn/input";
 
 type Props = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -6,6 +7,7 @@ type Props = Omit<
 > & {
   value: number | null;
   allowEmpty?: boolean;
+  designSystem?: boolean;
 };
 
 // Keep incomplete typing separate from the saved numeric value. In particular,
@@ -13,6 +15,7 @@ type Props = Omit<
 export function NumericInput({
   value,
   allowEmpty = false,
+  designSystem = false,
   onChange,
   onBlur,
   onFocus,
@@ -26,10 +29,12 @@ export function NumericInput({
       setText(value === null ? "" : String(value));
     emitted.current = value;
   }, [value]);
+  const Control = designSystem ? Input : "input";
   return (
-    <input
+    <Control
       {...props}
       type="number"
+      data-allow-empty={allowEmpty ? "true" : undefined}
       value={text}
       onFocus={(event) => {
         focused.current = true;

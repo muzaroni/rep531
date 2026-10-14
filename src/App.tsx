@@ -1,4 +1,5 @@
 import { BrandIcon } from "./components/BrandIcon";
+import { SaveToast } from "./components/SaveToast";
 import { InitialSetup } from "./components/InitialSetup";
 import { needsInitialSetup } from "./domain/initialSetup";
 import { CycleSetup } from "./components/CycleSetup";
@@ -27,7 +28,6 @@ import {
   Activity,
   ArrowRight,
   BarChart3,
-  ChevronRight,
   Dumbbell,
   LayoutDashboard,
   Settings2,
@@ -61,8 +61,9 @@ import { Settings } from "./components/Settings";
 import { Workout } from "./components/Workout";
 import { History } from "./components/History";
 import { RestTimer } from "./components/Timer";
-type Page = "dashboard" | "workout" | "history" | "settings" | "past-workout";
+type Page = "dashboard" | "workout" | "history" | "settings" | "past-workout" | "program";
 export default function App() {
+  const settingsFlushRef = useRef<(() => void) | null>(null);
   const [state, setState] = useState<AppState>(defaults),
     stateRef = useRef(state),
     [ready, setReady] = useState(false),
@@ -77,8 +78,7 @@ export default function App() {
     } | null>(null),
     [initialSetup, setInitialSetup] = useState(false),
     [cycleSetup, setCycleSetup] = useState(false),
-    [cardio, setCardio] = useState(false),
-    [install, setInstall] = useState(false);
+    [cardio, setCardio] = useState(false);
   useScreenWakeLock(ready && state.settings.keepScreenAwake);
   const timer = useRestTimer(ready, state.settings, state.active);
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function App() {
     }
   }, [ready, timer.setOpen]);
   useEffect(() => {
-    document.documentElement.dataset.theme = state.settings.accent;
+    document.documentElement.dataset.theme = "horizon";
     const meta = document.querySelector('meta[name="theme-color"]');
     meta?.setAttribute(
       "content",
@@ -108,7 +108,7 @@ export default function App() {
         .getPropertyValue("--bg")
         .trim(),
     );
-  }, [state.settings.accent]);
+  }, []);
   useEffect(() => {
     loadState()
       .then((s) => {
@@ -252,15 +252,17 @@ export default function App() {
     else timer.stop();
   };
   const navigate = (p: Page) => {
+    settingsFlushRef.current?.();
     timer.setOpen(false);
-    if (p === "workout" && state.active) {
+    const current = stateRef.current;
+    if (p === "workout" && current.active) {
       const active = syncWorkoutAccessories(
-        state.active,
-        state.settings,
-        state.settings,
+        current.active,
+        current.settings,
+        current.settings,
       );
-      if (JSON.stringify(active.sets) !== JSON.stringify(state.active.sets))
-        commit({ ...state, active });
+      if (JSON.stringify(active.sets) !== JSON.stringify(current.active.sets))
+        commit({ ...current, active });
     }
     setView(null);
     setPage(p);
@@ -277,7 +279,7 @@ export default function App() {
       </div>
     );
   return (
-    <div className="app" data-theme={state.settings.accent}>
+    <div className="app" data-theme="horizon">
       <div className="star-field" aria-hidden="true" />
       <header className="topbar">
         <a
@@ -306,7 +308,7 @@ export default function App() {
             <button
               key={n.id}
               className={
-                page === n.id || (n.id === "history" && page === "past-workout")
+                page === n.id || (n.id === "history" && page === "past-workout") || (n.id === "dashboard" && page === "program")
                   ? "active"
                   : ""
               }
@@ -339,129 +341,143 @@ export default function App() {
             </button>
           </div>
         )}
-        {page === "dashboard" && (
-          <Overview
-            state={state}
-            start={start}
-            settings={() => navigate("settings")}
-            history={() => navigate("history")}
-            cardio={() => setCardio(true)}
-            install={() => setInstall(true)}
-            addPastWorkout={addPastWorkout}
-            openWorkout={(workout) => {
-              setView(workout);
-              setPage("history");
-              window.scrollTo(0, 0);
-            }}
-          />
-        )}
-        {page === "workout" &&
-          (state.active ? (
-            <Workout
-              workout={state.active}
-              update={(active) => commit({ ...stateRef.current, active })}
-              finish={() => {
-                try {
-                  commit(finishWorkout(stateRef.current));
-                  timer.stop();
-                  navigate("history");
-                } catch (e) {
-                  setError(String(e));
-                }
-              }}
-              discard={() => {
-                if (
-                  !confirm(
-                    "Discard this workout and its logged sets? Your cycle progress will stay unchanged.",
-                  )
-                )
-                  return;
-                commit(discardActiveWorkout(stateRef.current));
-                navigate("dashboard");
-              }}
-              back={() => navigate("dashboard")}
-              onCompleteSet={rest}
-            />
-          ) : (
-            <section className="panel empty">
-              <Dumbbell size={36} />
-              <h1>
-                Ready when you are<span>.</span>
-              </h1>
-              <p>
-                Week {week} · {names[lift]} · {state.settings.maxes[lift]}{" "}
-                {state.settings.units} training max
-              </p>
-              <button className="primary" onClick={start}>
-                Start workout <ArrowRight size={19} />
-              </button>
-            </section>
-          ))}
-        {page === "history" &&
-          (view ? (
-            <HistoryWorkout
-              key={view.id}
-              workout={view}
-              settings={state.settings}
-              save={(edited) => {
-                const next = correctHistoryWorkout(
-                  stateRef.current,
-                  view.id,
-                  edited,
-                );
-                commit(next);
-                setView(
-                  next.history.find((workout) => workout.id === view.id)!,
-                );
-              }}
-              changeDate={(date) => {
-                const next = moveHistoryWorkoutDate(
-                  stateRef.current,
-                  view.id,
-                  date,
-                );
-                commit(next);
-                setView(
-                  next.history.find((workout) => workout.id === view.id)!,
-                );
-              }}
-              back={() => setView(null)}
-            />
-          ) : (
-            <History
+        <div key={page} className="page-transition">
+          {page === "dashboard" && (
+            <Overview
               state={state}
-              open={setView}
-              exportHistory={markdown}
-              addPastWorkout={() => addPastWorkout()}
+              start={start}
+              settings={() => navigate("program")}
+              cardio={() => setCardio(true)}
+              addPastWorkout={addPastWorkout}
+              openWorkout={(workout) => {
+                setView(workout);
+                setPage("history");
+                window.scrollTo(0, 0);
+              }}
             />
-          ))}
-        {page === "settings" && (
-          <Settings
-            state={state}
-            commit={commit}
-            backup={backup}
-            markdown={markdown}
-            clearTimer={timer.stop}
-            importFile={importFile}
-          />
-        )}
-        {page === "past-workout" && state.pastWorkout && (
-          <PastWorkoutEditor
-            state={state}
-            commit={commit}
-            back={() => navigate("history")}
-          />
-        )}
-        <footer>
-          <span>
-            REP531 <b> / </b> 5/3/1 STRENGTH TRAINING
-          </span>
-          <span>
-            <i className={saved === "Save failed" ? "bad" : ""} />
-            {saved}
-          </span>
-        </footer>
+          )}
+          {page === "workout" &&
+            (state.active ? (
+              <Workout
+                workout={state.active}
+                accessorySettings={state.settings}
+                reorderAccessories={(ids) => {
+                  const current = stateRef.current;
+                  if (!current.active) return;
+                  const settings = { ...current.settings, accessoryAssignments: { ...current.settings.accessoryAssignments, [current.active.lift]: ids } };
+                  commit({ ...current, settings, active: syncWorkoutAccessories(current.active, current.settings, settings) });
+                }}
+                updateAccessorySelection={(active, id, selected) => {
+                  const current = stateRef.current;
+                  const assignments = current.settings.accessoryAssignments;
+                  commit({ ...current, active, settings: { ...current.settings, accessoryAssignments: {
+                    ...assignments,
+                    [active.lift]: selected ? [...new Set([...assignments[active.lift], id])] : assignments[active.lift].filter(value => value !== id),
+                  } } });
+                }}
+                update={(active) => commit({ ...stateRef.current, active })}
+                finish={() => {
+                  try {
+                    commit(finishWorkout(stateRef.current));
+                    timer.stop();
+                    navigate("history");
+                  } catch (e) {
+                    setError(String(e));
+                  }
+                }}
+                discard={() => {
+                  if (
+                    !confirm(
+                      "Discard this workout and its logged sets? Your cycle progress will stay unchanged.",
+                    )
+                  )
+                    return;
+                  commit(discardActiveWorkout(stateRef.current));
+                  navigate("dashboard");
+                }}
+                back={() => navigate("dashboard")}
+                onCompleteSet={rest}
+              />
+            ) : (
+              <section className="panel empty">
+                <Dumbbell size={36} />
+                <h1>
+                  Ready when you are<span>.</span>
+                </h1>
+                <p>
+                  Week {week} · {names[lift]} · {state.settings.maxes[lift]}{" "}
+                  {state.settings.units} training max
+                </p>
+                <button className="primary" onClick={start}>
+                  Start workout <ArrowRight size={19} />
+                </button>
+              </section>
+            ))}
+          {page === "history" &&
+            (view ? (
+              <HistoryWorkout
+                key={view.id}
+                workout={view}
+                settings={state.settings}
+                save={(edited) => {
+                  const next = correctHistoryWorkout(
+                    stateRef.current,
+                    view.id,
+                    edited,
+                  );
+                  commit(next);
+                  setView(
+                    next.history.find((workout) => workout.id === view.id)!,
+                  );
+                }}
+                changeDate={(date) => {
+                  const next = moveHistoryWorkoutDate(
+                    stateRef.current,
+                    view.id,
+                    date,
+                  );
+                  commit(next);
+                  setView(
+                    next.history.find((workout) => workout.id === view.id)!,
+                  );
+                }}
+                back={() => setView(null)}
+              />
+            ) : (
+              <History
+                state={state}
+                open={setView}
+                exportHistory={markdown}
+                addPastWorkout={() => addPastWorkout()}
+              />
+            ))}
+          {(page === "settings" || page === "program") && (
+            <Settings
+              key={page}
+              programOnly={page === "program"}
+              back={() => navigate("dashboard")}
+              state={state}
+              flushRef={settingsFlushRef}
+              persistenceStatus={saved}
+              commit={commit}
+              backup={backup}
+              markdown={markdown}
+              clearTimer={timer.stop}
+              importFile={importFile}
+            />
+          )}
+          {page === "past-workout" && state.pastWorkout && (
+            <PastWorkoutEditor
+              state={state}
+              commit={commit}
+              back={() => navigate("history")}
+            />
+          )}
+        </div>
       </main>
+      {page !== "settings" && page !== "program" && (
+        <SaveToast status={saved} success="Saved on device" />
+      )}
       {page === "workout" && timer.timer && !timer.open && (
         <button
           className="secondary timer-reopen"
@@ -528,51 +544,7 @@ export default function App() {
           }}
         />
       )}
-      {install && (
-        <div className="modal-backdrop">
-          <section
-            className="panel modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="install-title"
-          >
-            <div className="section-heading">
-              <h2 id="install-title">Take REP531 to the gym.</h2>
-              <button
-                className="icon-button"
-                aria-label="Close install instructions"
-                onClick={() => setInstall(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <p>
-              <strong>iPhone / iPad</strong>
-              <br />
-              Open in Safari, tap Share, then Add to Home Screen.
-            </p>
-            <p>
-              <strong>Android</strong>
-              <br />
-              Open in Chrome, tap the menu, then Install app or Add to Home
-              screen.
-            </p>
-            <p className="subtle">
-              Load the production app once while online and wait for “Ready
-              offline.” Your workouts will then work without a connection.
-              Export backups regularly to protect your log.
-            </p>
-            <a
-              className="text-button"
-              href="https://www.jimwendler.com/blogs/jimwendler-com/101077382-boring-but-big"
-              target="_blank"
-              rel="noreferrer"
-            >
-              About Wendler’s BBB template <ChevronRight size={16} />
-            </a>
-          </section>
-        </div>
-      )}
+
     </div>
   );
 }

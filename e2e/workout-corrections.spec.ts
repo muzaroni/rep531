@@ -18,7 +18,7 @@ test("discard confirms, clears the timer and draft, and keeps program progress",
   page.once("dialog", (dialog) => dialog.accept());
   await click("Discard workout");
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.getItem("bbb-rest-timer")),
@@ -53,7 +53,7 @@ test("saved performance edits can be cancelled or saved and survive reload", asy
   await weight.fill("160");
   await reps.fill("9");
   await page.getByLabel("Session notes").fill("Corrected weight and reps");
-  await click("Save changes");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(weight).toBeDisabled();
   await expect(weight).toHaveValue("160");
   await click("Back to history");
@@ -68,6 +68,6 @@ test("saved performance edits can be cancelled or saved and survive reload", asy
   );
   await click("Overview");
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
 });

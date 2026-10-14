@@ -77,7 +77,7 @@ test("cardio shortcuts, custom names and last saved activity work on narrow phon
     .getByRole("button", { name: "Close cardio", exact: true })
     .click();
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.locator(".history-list")).toContainText("Cycling");

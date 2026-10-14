@@ -101,7 +101,7 @@ export function makeWorkout(state: AppState): Workout {
     target: number,
     plus = false,
     name = names[lift],
-    weight = nearestLoad((tm * percent) / 100, equipment, s.rounding),
+    weight = nearestLoad((tm * percent) / 100, equipment, s.rounding, s.loadRounding),
     category?: WorkoutSet["category"],
     accessoryId?: string,
   ) =>
@@ -141,7 +141,7 @@ export function makeWorkout(state: AppState): Workout {
         10,
         false,
         names[bbbLift],
-        nearestLoad((bbbTm * s.bbbPercent) / 100, equipment, s.rounding),
+        nearestLoad((bbbTm * s.bbbPercent) / 100, equipment, s.rounding, s.loadRounding),
       );
   for (const id of s.accessoryAssignments[lift]) {
     const a = s.accessories.find((item) => item.id === id);
@@ -158,6 +158,7 @@ export function makeWorkout(state: AppState): Workout {
     cycle: state.cycle,
     week,
     date: new Date().toISOString(),
+    startedAt: new Date().toISOString(),
     completedAt: null,
     units: s.units,
     tm,

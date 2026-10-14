@@ -1,4 +1,14 @@
 import { test as base } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+export async function waitForSettingsAutosave(page: Page) {
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement)
+      document.activeElement.blur();
+  });
+  // Timer tests use a mocked browser clock; ordinary tests use real time.
+  await page.clock.runFor(700).catch(() => {});
+  await expect(page.locator(".settings-autosave")).toHaveText("Saved");
+}
 export * from "@playwright/test";
 // Existing feature tests begin after onboarding; onboarding has its own tests.
 export const test = base.extend<{ completeSetupAutomatically: boolean }>({

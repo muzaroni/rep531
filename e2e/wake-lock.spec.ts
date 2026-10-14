@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { test, expect } from "./fixtures";
 
 test("screen awake requests, releases, reacquires and respects the saved preference", async ({
@@ -52,10 +53,7 @@ test("screen awake requests, releases, reacquires and respects the saved prefere
   await expect.poll(async () => (await stats()).requests).toBe(2);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("checkbox", { name: /Keep screen awake/ }).uncheck();
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await expect.poll(async () => (await stats()).releases).toBe(2);
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();

@@ -16,6 +16,7 @@ export async function loadState(db = database): Promise<AppState> {
   if (
     row.value.schemaVersion !== value.schemaVersion ||
     row.value.settings.legPresetVersion !== value.settings.legPresetVersion ||
+    row.value.settings.accent !== value.settings.accent ||
     row.value.settings.accessoryDefaultsVersion !==
       value.settings.accessoryDefaultsVersion
   )
@@ -25,6 +26,7 @@ export async function loadState(db = database): Promise<AppState> {
 let pending: Promise<unknown> = Promise.resolve();
 export function saveState(value: AppState, db = database): Promise<void> {
   const validated = stateSchema.parse(value);
+  validated.settings.accent = "horizon";
   const task = pending
     .catch(() => {})
     .then(async () => {
@@ -36,7 +38,9 @@ export function saveState(value: AppState, db = database): Promise<void> {
   return task;
 }
 export function exportBackup(state: AppState): string {
-  return JSON.stringify(stateSchema.parse(state), null, 2);
+  const validated = stateSchema.parse(state);
+  validated.settings.accent = "horizon";
+  return JSON.stringify(validated, null, 2);
 }
 export function parseBackup(raw: string): AppState {
   if (raw.length > 20_000_000)

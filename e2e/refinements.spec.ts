@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup, openSettingForLabel } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 
@@ -34,7 +35,6 @@ test("numeric fields stay empty while typing, retain 1RMs and save corrected val
   await openSettingsGroup(page, "maxes");
   await expect(tm).toHaveValue("270");
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   await openSettingsGroup(page, "accessories");
   await page
     .getByRole("button", { name: "Edit library Lat pulldown", exact: true })
@@ -72,12 +72,9 @@ test("numeric fields stay empty while typing, retain 1RMs and save corrected val
   await oneRM.focus();
   await openSettingsGroup(page, "maxes");
   await expect(tm).toHaveValue("270");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Settings saved" }),
+    page.locator(".settings-autosave"),
   ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -154,16 +151,17 @@ test("compact accessory controls align and conversion previews use both plate in
     page.getByRole("textbox", { name: /Accessory name/ }),
   ).toHaveCount(0);
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   await openSettingsGroup(page, "accessories");
-  await expect(page.locator(".library-row")).toHaveCount(31);
+  await expect(page.locator(".library-row")).toHaveCount(30);
   await openSettingsGroup(page, "accessories");
   await page
     .getByRole("button", { name: "Edit library Push up", exact: true })
     .click();
+  await expect(page.getByRole("searchbox", { name: "Search accessories", exact: true })).toHaveCSS("padding-left", "34px");
+  await expect(page.getByRole("dialog", { name: "Edit exercise", exact: true })).toHaveCount(0);
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
-    const fields = page.locator(".accessory-form-numbers input");
+    const fields = page.locator(".accessory-inline-numbers input");
     const sets = await fields.nth(0).boundingBox(),
       reps = await fields.nth(1).boundingBox(),
       weight = await fields.nth(2).boundingBox();
@@ -178,3 +176,4 @@ test("compact accessory controls align and conversion previews use both plate in
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/accessory-editor-mobile.png" });
 });
+

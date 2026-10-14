@@ -5,12 +5,13 @@ import {
   pauseRestTimer,
   resumeRestTimer,
   extendRestTimer,
+  shortenRestTimer,
   startRestTimer,
   timerSeconds,
   restTimerSchema,
   type RestTimerState,
 } from "../domain/restTimer";
-import { unlockAudio } from "../lib/timerAudio";
+import { stopChime, unlockAudio } from "../lib/timerAudio";
 import { alertTimerComplete } from "../lib/timerAlerts";
 const storageKey = "bbb-rest-timer";
 function loadTimer(): RestTimerState | null {
@@ -37,6 +38,7 @@ export function useRestTimer(
   const current = useRef({ settings, workout });
   current.current = { settings, workout };
   const replace = useCallback((next: RestTimerState | null) => {
+    stopChime();
     timerRef.current = next;
     setTimer(next);
     try {
@@ -99,7 +101,10 @@ export function useRestTimer(
   return {
     timer,
     open,
-    setOpen,
+    setOpen: (visible: boolean) => {
+      if (!visible) stopChime();
+      setOpen(visible);
+    },
     start,
     stop,
     left: timerSeconds(timer, now),
@@ -117,7 +122,11 @@ export function useRestTimer(
     extend: () => {
       const t = timerRef.current;
       if (t && !t.completed && t.totalSeconds < 86400)
-        replace(extendRestTimer(t, Math.min(30, 86400 - t.totalSeconds)));
+        replace(extendRestTimer(t, Math.min(15, 86400 - t.totalSeconds)));
+    },
+    shorten: () => {
+      const t = timerRef.current;
+      if (t && !t.completed) replace(shortenRestTimer(t, 15, Date.now()));
     },
     restart: () => {
       const t = timerRef.current;

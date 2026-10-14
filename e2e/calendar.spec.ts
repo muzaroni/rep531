@@ -1,6 +1,47 @@
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 
+test("swiping the cycle card browses weeks without advancing training", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 5, 12));
+  await page.goto("./");
+  const calendar = page.getByRole("region", { name: "Cycle schedule" });
+  await calendar.evaluate((element) => {
+    const start = new Touch({
+      identifier: 1,
+      target: element,
+      clientX: 260,
+      clientY: 220,
+    });
+    const end = new Touch({
+      identifier: 1,
+      target: element,
+      clientX: 80,
+      clientY: 224,
+    });
+    element.dispatchEvent(
+      new TouchEvent("touchstart", {
+        changedTouches: [start],
+        touches: [start],
+        bubbles: true,
+      }),
+    );
+    element.dispatchEvent(
+      new TouchEvent("touchend", { changedTouches: [end], bubbles: true }),
+    );
+  });
+  await expect(calendar).toContainText("Cycle 1 · Week 2 of 4");
+  await expect(
+    calendar.locator(".calendar-lift-summary").first(),
+  ).toContainText("Main · 160×3 · 180×3 · 205×3+ lb");
+  await expect(
+    page.getByText("0 of 16 workouts", { exact: true }),
+  ).toBeVisible();
+  await calendar.getByRole("button", { name: "Previous week" }).click();
+  await expect(calendar).toContainText("Cycle 1 · Week 1 of 4");
+});
+
 test("week and day browsing previews prescriptions without changing the live workout", async ({
   page,
 }) => {
@@ -10,23 +51,26 @@ test("week and day browsing previews prescriptions without changing the live wor
     name: "Cycle schedule",
     exact: true,
   });
-  await expect(calendar.locator(".calendar-day")).toHaveCount(7);
+  await expect(calendar.locator(".calendar-day")).toHaveCount(0);
   await expect(
-    calendar.getByRole("button", { name: "Week 1 · 5s", exact: true }),
-  ).toHaveAttribute("aria-current", "step");
-  await calendar
-    .getByRole("button", { name: "Week 2 · 3s", exact: true })
-    .click();
-  await expect(
-    calendar.getByRole("heading", { name: "Week 2", exact: true }),
+    calendar
+      .locator(".week-card-header")
+      .getByRole("button", { name: "Edit program" }),
   ).toBeVisible();
-  await expect(calendar.locator(".calendar-protocol")).toHaveText(
-    "3 / 3 / 3+ reps · 70% / 80% / 90%",
-  );
+  await expect(calendar).toContainText("Cycle 1 · Week 1 of 4");
+  await expect(
+    calendar.locator(".calendar-lift-summary").first(),
+  ).toContainText("Main · 145×5 · 170×5 · 190×5+ lb");
+  await expect(
+    calendar.locator(".calendar-lift-summary .lift-icon"),
+  ).toHaveCount(4);
+  await calendar.getByRole("button", { name: "Next week" }).click();
+  await expect(
+    calendar.getByRole("heading", { name: /3s · Oct/ }),
+  ).toBeVisible();
   await calendar
     .getByRole("button", {
-      name: "Squat · planned · show details",
-      exact: true,
+      name: /Squat · Planned · main sets 160×3 · 180×3 · 205×3\+ lb · show details/,
     })
     .click();
   const detail = calendar.getByRole("region", {
@@ -49,15 +93,13 @@ test("week and day browsing previews prescriptions without changing the live wor
     page.locator(".next-workout .overview-main-sets strong"),
   ).toHaveText(["145 lb", "170 lb", "190 lb"]);
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
-  await calendar
-    .getByRole("button", { name: "Week 4 · Deload", exact: true })
-    .click();
+  await calendar.getByRole("button", { name: "Next week" }).click();
+  await calendar.getByRole("button", { name: "Next week" }).click();
   await calendar
     .getByRole("button", {
-      name: "Squat · planned · show details",
-      exact: true,
+      name: /Squat · Planned · main sets 90×5 · 115×5 · 135×5 lb · show details/,
     })
     .click();
   await expect(detail.locator(".calendar-detail-sets strong")).toHaveText([
@@ -66,8 +108,6 @@ test("week and day browsing previews prescriptions without changing the live wor
     "135 lb × 5",
   ]);
   await expect(detail).not.toContainText("BBB ·");
-  await calendar.locator(".calendar-day").last().click();
-  await expect(detail).toContainText("Rest day · no lifting scheduled.");
   await calendar
     .getByRole("button", { name: "Close day details", exact: true })
     .click();
@@ -79,21 +119,21 @@ test("week and day browsing previews prescriptions without changing the live wor
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    if (width === 320) {
+      await calendar.screenshot({ path: "test-results/calendar-320.png" });
+    }
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await calendar
-    .getByRole("button", { name: "Current week", exact: true })
-    .click();
-  await expect(
-    calendar.getByRole("heading", { name: "This week", exact: true }),
-  ).toBeVisible();
+  for (let week = 0; week < 3; week++) {
+    await calendar.getByRole("button", { name: "Previous week" }).click();
+  }
+  await expect(calendar).toContainText("Cycle 1 · Week 1 of 4");
   const notice = page.getByRole("button", { name: "Got it", exact: true });
   if (await notice.isVisible()) await notice.click();
   await calendar.screenshot({ path: "test-results/calendar-mobile.png" });
   // Browse elsewhere, then use the normal primary action: it still starts week one.
-  await calendar
-    .getByRole("button", { name: "Week 3 · 5/3/1", exact: true })
-    .click();
+  await calendar.getByRole("button", { name: "Next week" }).click();
+  await calendar.getByRole("button", { name: "Next week" }).click();
   await page
     .getByRole("button", { name: "Start workout", exact: true })
     .click();
@@ -102,7 +142,7 @@ test("week and day browsing previews prescriptions without changing the live wor
   );
 });
 
-test("calendar shows actual workout dates, cardio and original history in selected units", async ({
+test("cycle card shows actual workout dates and original history in selected units", async ({
   page,
 }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 5, 12));
@@ -148,44 +188,36 @@ test("calendar shows actual workout dates, cardio and original history in select
     name: "Cycle schedule",
     exact: true,
   });
-  const monday = calendar.getByRole("button", {
-    name: /^Monday, October 5, 2026/,
-  });
-  await expect(monday).toHaveAccessibleName(/Rest day/);
   await calendar
-    .getByRole("button", { name: /^Tuesday, October 6, 2026.*Squat logged/ })
+    .getByRole("button", { name: /Squat · Logged · main sets/ })
     .click();
   const detail = calendar.getByRole("region", {
     name: "Day details",
     exact: true,
   });
+  await expect(
+    detail.getByRole("heading", { name: "Tuesday, Oct 6" }),
+  ).toBeVisible();
   await expect(detail).toContainText("Logged · Week 1");
   await expect(detail).toContainText("Planned · Week 1");
   await expect(
     detail.locator(".calendar-workout-detail").first(),
   ).toContainText("65 kg × 5");
   await expect(detail).not.toContainText(/\blb\b/);
-  await calendar
-    .getByRole("button", { name: /^Wednesday, October 7, 2026.*Easy run/ })
-    .click();
-  await expect(detail).toContainText("Easy run · 25 min");
-  await expect(detail).toContainText("Park loop");
   const notice = page.getByRole("button", { name: "Got it", exact: true });
   if (await notice.isVisible()) await notice.click();
   await calendar.screenshot({
-    path: "test-results/calendar-cardio-mobile.png",
+    path: "test-results/calendar-history-mobile.png",
   });
-  await calendar
-    .getByRole("button", {
-      name: "Squat · completed · show details",
-      exact: true,
-    })
-    .click();
   await detail
     .getByRole("button", { name: "View logged workout", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Back to history", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".tm-tag strong")).toHaveText("100 kg");
+  await expect(page.locator(".set-table-labels").first()).toContainText("KG");
+  await page
+    .getByRole("button", { name: "Back to history", exact: true })
+    .click();
+  await expect(page.locator(".history-list")).toContainText("Easy run");
 });

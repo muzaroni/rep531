@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 test("mobile and desktop dashboard have no horizontal overflow", async ({
@@ -65,10 +66,7 @@ test("touch handle reorders exercises and reset clears only current progress", a
   await expect(page.locator('[data-order-index="0"]')).toContainText(
     "Bench press",
   );
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   page.on("dialog", (d) => d.accept());
   await openSettingsGroup(page, "data");
   await page.getByRole("button", { name: "Reset cycle", exact: true }).click();
@@ -77,9 +75,9 @@ test("touch handle reorders exercises and reset clears only current progress", a
     page.getByRole("button", { name: "Start workout", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("timer")).toHaveCount(0);
+  await expect(page.getByRole("timer", { name: "Rest timer", exact: true })).toHaveCount(0);
 });
 test("workout saves edits, survives reload, completes and advances once", async ({
   page,
@@ -94,7 +92,7 @@ test("workout saves edits, survives reload, completes and advances once", async 
   await page
     .getByRole("checkbox", { name: "Complete warmup set 1", exact: true })
     .check();
-  await expect(page.getByRole("timer")).toBeVisible();
+  await expect(page.getByRole("timer", { name: "Rest timer", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Dismiss timer" }).click();
   await expect(
     page.getByText("Saved on device", { exact: true }),
@@ -127,7 +125,7 @@ test("workout saves edits, survives reload, completes and advances once", async 
   await page.getByRole("button", { name: "Overview", exact: true }).click();
   await expect(page.locator(".next-workout h2")).toHaveText("Bench press");
   await expect(
-    page.getByText("1 / 16 workouts", { exact: true }),
+    page.getByText("1 of 16 workouts", { exact: true }),
   ).toBeVisible();
 });
 test("settings, cardio, JSON backup and restore work on mobile", async ({
@@ -144,9 +142,7 @@ test("settings, cardio, JSON backup and restore work on mobile", async ({
     page.getByRole("spinbutton", { name: "Squat training max", exact: true }),
   ).toHaveValue("270");
   await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color" })
-    .selectOption("blue");
+  await expect(page.getByRole("combobox", { name: "Theme color" })).toHaveCount(0);
   const reorderHandle = page.getByRole("button", {
     name: "Drag Bench press to reorder",
     exact: true,
@@ -155,12 +151,9 @@ test("settings, cardio, JSON backup and restore work on mobile", async ({
   await reorderHandle.focus();
   await openSettingsGroup(page, "program");
   await reorderHandle.press("ArrowUp");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Settings saved" }),
+    page.locator(".settings-autosave"),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -190,10 +183,7 @@ test("settings, cardio, JSON backup and restore work on mobile", async ({
   await page
     .getByRole("spinbutton", { name: "Squat training max", exact: true })
     .fill("100");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   page.on("dialog", (d) => d.accept());
   await openSettingsGroup(page, "data");
   await page.locator("input[type=file]").setInputFiles(path!);
@@ -260,3 +250,4 @@ test("production app reloads and logs workouts without a network", async ({
       .evaluate((el) => getComputedStyle(el).fontFamily),
   ).toContain("Reddit Sans");
 });
+

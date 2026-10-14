@@ -80,6 +80,7 @@ export function PastWorkoutEditor({
         </p>
       )}
       <Workout
+        accessorySettings={state.settings}
         past
         workout={state.pastWorkout}
         update={(pastWorkout) => commit({ ...state, pastWorkout })}

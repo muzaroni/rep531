@@ -1,7 +1,14 @@
 import { deleteAllCycles, resetCycle } from "../domain/cycleData";
+import { changeCycleVariation } from "../domain/changeCycleVariation";
 import { requestTimerNotifications } from "../lib/timerAlerts";
 import { syncWorkoutAccessories } from "../domain/workoutAccessories";
-import { useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type MutableRefObject,
+} from "react";
 import { SettingsGroup, type SettingsSection } from "./SettingsGroup";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import {
@@ -16,15 +23,16 @@ import {
   names,
   type AppState,
   type Settings as SettingsType,
+  type Variant,
   settingsSchema,
   lifts,
   equipmentSchema,
-  type Variant,
 } from "../domain/model";
 import {
   trainingMax,
   changeUnits,
   cycleVariant,
+  swappedLifts,
   otherUnitMax,
   normalizeCycleProgress,
 } from "../domain/calculations";
@@ -32,13 +40,29 @@ import { chimeNames, playChime } from "./Timer";
 import { EquipmentEditor } from "./EquipmentEditor";
 import { AccessoryEditor } from "./AccessoryEditor";
 import { NumericInput } from "./NumericInput";
+import { SaveToast } from "./SaveToast";
+import { Button } from "./ui/shadcn/button";
+import { Accordion } from "./ui/shadcn/accordion";
+import { Input, NativeSelect } from "./ui/shadcn/input";
+import { Field } from "./ui/Field";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "./ui/shadcn/dialog";
 type Props = {
   state: AppState;
   commit: (s: AppState) => void;
   clearTimer: () => void;
   backup: () => void;
   markdown: () => void;
-  importFile: (f: File) => void;
+  importFile: (f: File) => Promise<void>;
+  flushRef: MutableRefObject<(() => void) | null>;
+  persistenceStatus: string;
+  programOnly?: boolean;
+  back?: () => void;
 };
 export function Settings({
   state,
@@ -47,18 +71,45 @@ export function Settings({
   clearTimer,
   markdown,
   importFile,
+  flushRef,
+  persistenceStatus,
+  programOnly = false,
+  back,
 }: Props) {
   const [draft, setDraft] = useState<SettingsType>(() =>
     structuredClone(state.settings),
   );
   const [message, setMessage] = useState("");
+  const [incompleteInput, setIncompleteInput] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const checkNumericInputs = () => {
+    const inputs = pageRef.current?.querySelectorAll<HTMLInputElement>(
+      'input[type="number"]',
+    );
+    setIncompleteInput(
+      [...(inputs ?? [])].some(
+        (input) =>
+          input.validity.badInput ||
+          (input.value === "" && input.dataset.allowEmpty !== "true") ||
+          (input.value !== "" &&
+            (input.validity.rangeUnderflow || input.validity.rangeOverflow)),
+      ),
+    );
+  };
   const [accessoriesOpen, setAccessoriesOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [dataHelpOpen, setDataHelpOpen] = useState(false);
+  const [variationOpen, setVariationOpen] = useState(false);
+  const [selectedVariation, setSelectedVariation] = useState<Variant>("normal");
   const [openSection, setOpenSection] = useState<SettingsSection | null>(() => {
+    if (programOnly) return "program";
     try {
       const saved = localStorage.getItem("bbb-settings-section");
+      if (saved === "equipment") return "plates";
       if (saved === "") return null;
-      return ["appearance", "maxes", "program", "equipment", "data"].includes(
+      return ["appearance", "maxes", "program", "plates", "timers", "data", "install"].includes(
         saved ?? "",
       )
         ? (saved as SettingsSection)
@@ -67,9 +118,10 @@ export function Settings({
       return "appearance";
     }
   });
-  const toggleSection = (section: SettingsSection) => {
-    const next = openSection === section ? null : section;
+  const toggleSection = (value: string) => {
+    const next = (value || null) as SettingsSection | null;
     setOpenSection(next);
+    if (programOnly) return;
     try {
       localStorage.setItem("bbb-settings-section", next ?? "");
     } catch {
@@ -77,14 +129,6 @@ export function Settings({
     }
   };
   const dirty = JSON.stringify(draft) !== JSON.stringify(state.settings);
-  const themeNames: Record<SettingsType["accent"], string> = {
-    lime: "Acid Moss",
-    blue: "Deep Cosmos",
-    pink: "Deep Cosmos",
-    orange: "Solar Flare",
-    starry: "Starry Night",
-    horizon: "Event Horizon",
-  };
   const [drag, setDrag] = useState<number | null>(null);
   const update = (patch: Partial<SettingsType>) => {
     setDraft((s) => ({ ...s, ...patch }));
@@ -101,29 +145,10 @@ export function Settings({
     update({ order, days });
   };
   const save = () => {
+    if (!dirty || incompleteInput || importing) return;
     const parsed = settingsSchema.safeParse(draft);
     if (!parsed.success) {
-      const field = String(parsed.error.issues[0].path[0]);
-      const section: SettingsSection = [
-        "maxes",
-        "oneRepMaxes",
-        "autoIncrease",
-        "increases",
-      ].includes(field)
-        ? "maxes"
-        : ["equipment", "rounding", "rest", "chime", "timerAlerts"].includes(
-              field,
-            )
-          ? "equipment"
-          : ["units", "accent", "keepScreenAwake"].includes(field)
-            ? "appearance"
-            : "program";
-      setOpenSection(section);
-      if (field === "percentages" || field === "warmup") setAdvancedOpen(true);
-      setAccessoriesOpen(
-        field === "accessories" || field === "accessoryAssignments",
-      );
-      setMessage(parsed.error.issues[0].message);
+      setMessage(`Changes not saved: ${parsed.error.issues[0].message}`);
       return;
     }
     const next = normalizeCycleProgress({
@@ -135,86 +160,76 @@ export function Settings({
     });
     commit(next);
     setDraft(structuredClone(next.settings));
-    setMessage(
-      state.active
-        ? "Settings saved. Current workout accessories updated; completed sets kept."
-        : "Settings saved. Changes apply to your next workout.",
-    );
+    setMessage("");
   };
-  const group = (
-    id: SettingsSection,
-    title: string,
-    summary: string,
-    children: ReactNode,
-  ) => (
-    <SettingsGroup
-      id={id}
-      title={title}
-      summary={summary}
-      open={openSection === id}
-      toggle={() => toggleSection(id)}
-    >
+  const latestSave = useRef(save);
+  latestSave.current = save;
+  useEffect(() => {
+    flushRef.current = () => latestSave.current();
+    const flush = () => latestSave.current();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      flushRef.current = null;
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [flushRef]);
+  useEffect(() => {
+    if (!dirty || incompleteInput || importing) return;
+    const timeout = window.setTimeout(() => latestSave.current(), 600);
+    return () => window.clearTimeout(timeout);
+  }, [draft, dirty, incompleteInput, importing]);
+  const group = (id: SettingsSection, title: string, children: ReactNode) => programOnly && id !== "program" ? null : (
+    <SettingsGroup id={id} title={title} open={openSection === id}>
       {children}
     </SettingsGroup>
   );
   return (
-    <div className="settings-page">
+    <div
+      className="settings-page"
+      ref={pageRef}
+      onInputCapture={() => window.setTimeout(checkNumericInputs, 0)}
+      onBlurCapture={() => window.setTimeout(checkNumericInputs, 0)}
+    >
+      {programOnly && !accessoriesOpen && <Button variant="text" onClick={back}><ArrowLeft size={17} /> Back to overview</Button>}
       {accessoriesOpen && (
-        <button
-          className="text-button"
+        <Button
+          variant="text"
           onClick={() => {
             setAccessoriesOpen(false);
             window.scrollTo(0, 0);
           }}
         >
-          <ArrowLeft size={17} /> Back to settings
-        </button>
+          <ArrowLeft size={17} /> Back to program
+        </Button>
       )}
-      <div className="page-title">
+      {!accessoriesOpen && <div className="page-title">
         <div>
           <p className="eyebrow">MAKE IT YOURS</p>
           <h1>
-            {accessoriesOpen ? "Accessories" : "Settings"}
+            {accessoriesOpen ? "Accessories" : programOnly ? "Edit program" : "Settings"}
             <span>.</span>
           </h1>
         </div>
-      </div>
+      </div>}
       {accessoriesOpen ? (
-        <AccessoryEditor settings={draft} update={update} />
+        <AccessoryEditor settings={draft} update={update} standalone />
       ) : (
-        <div className="settings-sections">
+        <Accordion
+          className="settings-sections"
+          type="single"
+          collapsible
+          value={openSection ?? ""}
+          onValueChange={toggleSection}
+        >
           {group(
             "appearance",
             "Appearance & device",
-            `${themeNames[draft.accent]} · ${draft.units} · Screen awake ${draft.keepScreenAwake ? "on" : "off"}`,
             <>
-              <label className="field-row">
-                Theme color
-                <select
-                  className="theme-select"
-                  data-color={draft.accent === "pink" ? "blue" : draft.accent}
-                  value={draft.accent === "pink" ? "blue" : draft.accent}
-                  onChange={(e) =>
-                    update({ accent: e.target.value as SettingsType["accent"] })
-                  }
-                >
-                  <option value="lime" style={{ color: "#c4ff24" }}>
-                    Acid Moss
-                  </option>
-                  <option value="blue" style={{ color: "#36b9ff" }}>
-                    Deep Cosmos
-                  </option>
-                  <option value="orange" style={{ color: "#ff8c26" }}>
-                    Solar Flare
-                  </option>
-                  <option value="starry" style={{ color: "#d8e8ff" }}>
-                    Starry Night
-                  </option>
-                  <option value="horizon" style={{ color: "#cbd5e1" }}>
-                    Event Horizon
-                  </option>
-                </select>
-              </label>
               <label className="toggle-row">
                 <span>
                   Keep screen awake
@@ -222,7 +237,7 @@ export function Settings({
                     Prevent dimming while the app is open, where supported
                   </small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.keepScreenAwake}
                   onChange={(e) =>
@@ -230,9 +245,8 @@ export function Settings({
                   }
                 />
               </label>
-              <label className="field-row">
-                Weight units
-                <select
+              <Field label="Weight units">
+                <NativeSelect
                   value={draft.units}
                   onChange={(e) => {
                     const units = e.target.value as SettingsType["units"];
@@ -245,21 +259,18 @@ export function Settings({
                       return;
                     }
                     setDraft(changeUnits(draft, units));
-                    setMessage(
-                      "Weights converted and rounded. Plate inventories are unchanged.",
-                    );
+                    setMessage("");
                   }}
                 >
                   <option value="lb">Pounds (lb)</option>
                   <option value="kg">Kilograms (kg)</option>
-                </select>
-              </label>
+                </NativeSelect>
+              </Field>
             </>,
           )}
           {group(
             "maxes",
             "Training maxes",
-            `${lifts.map((lift) => `${names[lift]} ${draft.maxes[lift]}`).join(" · ")} ${draft.units}`,
             <>
               <p className="subtle">
                 1RM calculates a 90% TM. You can also edit TM directly.
@@ -281,6 +292,7 @@ export function Settings({
                     <div className="max-row" key={lift}>
                       <strong>{names[lift]}</strong>
                       <NumericInput
+                        designSystem
                         aria-label={`${names[lift]} one rep max`}
                         min="1"
                         step="any"
@@ -308,6 +320,7 @@ export function Settings({
                       />
                       <div className="max-cell">
                         <NumericInput
+                          designSystem
                           aria-label={`${names[lift]} training max`}
                           min="1"
                           step="any"
@@ -339,7 +352,7 @@ export function Settings({
                   Increase TMs after each cycle
                   <small>Optional automatic progression</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.autoIncrease}
                   onChange={(e) => update({ autoIncrease: e.target.checked })}
@@ -350,6 +363,7 @@ export function Settings({
                   <label className="field-row" key={lift}>
                     {names[lift]} increase ({draft.units})
                     <NumericInput
+                      designSystem
                       min="0.01"
                       step="any"
                       value={draft.increases[lift]}
@@ -369,55 +383,21 @@ export function Settings({
           {group(
             "program",
             "Program & schedule",
-            `${cycleVariant(draft, state.cycle) === "swap" ? "BBB Swap" : "Normal"} · ${draft.bbb ? `${draft.bbbPercent}% BBB` : "BBB off"} · ${draft.skipDeload ? "3" : "4"} weeks`,
             <>
-              <button
-                className="secondary full accessory-settings-link"
-                onClick={() => {
-                  setAccessoriesOpen(true);
-                  window.scrollTo(0, 0);
-                }}
-              >
-                <span>
-                  Manage accessories
-                  <small>
-                    {draft.accessories.length} exercises · Choose for each
-                    lifting day
-                  </small>
-                </span>
-                <ChevronRight size={19} />
-              </button>
-              {[state.cycle, state.cycle + 1].map((cycle) => (
-                <label className="field-row" key={cycle}>
-                  Cycle {cycle}
-                  {cycle === state.cycle ? " variation" : " (next)"}
-                  <select
-                    aria-label={`Cycle ${cycle} variation`}
-                    value={cycleVariant(draft, cycle)}
-                    onChange={(e) =>
-                      update({
-                        cycleVariants: {
-                          ...draft.cycleVariants,
-                          [String(cycle)]: e.target.value as Variant,
-                        },
-                      })
-                    }
-                  >
-                    <option value="normal">Normal BBB</option>
-                    <option value="swap">BBB Swap</option>
-                  </select>
-                </label>
-              ))}
-              <p className="subtle">
-                BBB Swap pairs Squat ↔ Deadlift and Bench ↔ Overhead press,
-                using each lift’s own TM.
-              </p>
+              <div className="field-row">
+                <span>Cycle {state.cycle} variation</span>
+                <strong aria-label="Current cycle variation">{cycleVariant(state.settings, state.cycle) === "swap" ? "BBB Swap" : "Normal BBB"}</strong>
+              </div>
+              {programOnly && <Button variant="text" size="sm" onClick={() => {
+                setSelectedVariation(cycleVariant(state.settings, state.cycle));
+                setVariationOpen(true);
+              }}>Change variation</Button>}
               <label className="toggle-row">
                 <span>
                   Skip warmups
                   <small>Start new workouts with the main sets</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.skipWarmups}
                   onChange={(e) => update({ skipWarmups: e.target.checked })}
@@ -428,7 +408,7 @@ export function Settings({
                   Skip deload week
                   <small>Three-week cycles · 12 lifting sessions</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.skipDeload}
                   onChange={(e) => update({ skipDeload: e.target.checked })}
@@ -439,7 +419,7 @@ export function Settings({
                   Boring But Big
                   <small>Five sets of ten after the main lift</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.bbb}
                   onChange={(e) => update({ bbb: e.target.checked })}
@@ -448,6 +428,7 @@ export function Settings({
               <label className="field-row">
                 BBB percentage
                 <NumericInput
+                  designSystem
                   min="1"
                   max="150"
                   step="any"
@@ -473,7 +454,8 @@ export function Settings({
                     setDrag(null);
                   }}
                 >
-                  <button
+                  <Button
+                    variant="icon"
                     className="icon-button drag-handle"
                     aria-label={`Drag ${names[lift]} to reorder`}
                     draggable
@@ -504,9 +486,9 @@ export function Settings({
                     }}
                   >
                     <GripVertical size={20} />
-                  </button>
+                  </Button>
                   <strong>{names[lift]}</strong>
-                  <select
+                  <NativeSelect
                     aria-label={`${names[lift]} training day`}
                     value={draft.days[i]}
                     onChange={(e) => {
@@ -522,7 +504,7 @@ export function Settings({
                         </option>
                       ),
                     )}
-                  </select>
+                  </NativeSelect>
                 </div>
               ))}
               <details
@@ -541,6 +523,7 @@ export function Settings({
                           Week {i + 1} set {j + 1} percentage
                         </span>
                         <NumericInput
+                          designSystem
                           min="1"
                           max="150"
                           step="any"
@@ -566,6 +549,7 @@ export function Settings({
                         Warmup set {i + 1} percentage
                       </span>
                       <NumericInput
+                        designSystem
                         min="1"
                         max="150"
                         step="any"
@@ -587,25 +571,38 @@ export function Settings({
             </>,
           )}
           {group(
-            "equipment",
-            "Equipment & rest",
-            `${draft.rounding} ${draft.units} rounding · ${draft.rest.working}s main rest`,
+            "plates",
+            "Plates",
             <>
               <EquipmentEditor settings={draft} update={update} />
               <label className="field-row">
                 Rounding increment
                 <NumericInput
+                  designSystem
                   min="0.01"
                   step="any"
                   value={draft.rounding}
                   onChange={(e) => update({ rounding: Number(e.target.value) })}
                 />
               </label>
+              <Field label="When a workout load cannot be exact">
+                <NativeSelect aria-label="When a workout load cannot be exact" value={draft.loadRounding} onChange={event => update({ loadRounding: event.target.value as SettingsType["loadRounding"] })}>
+                  <option value="nearest">Nearest achievable weight</option>
+                  <option value="up">Round up</option>
+                  <option value="down">Round down</option>
+                </NativeSelect>
+              </Field>
               <p className="subtle">
                 Barbell loads and other-unit TMs use balanced pairs from your
                 available plates.
               </p>
-              <h3 className="settings-subheading">Rest timer</h3>
+              <p className="subtle">Rounding direction applies to new warmup, main and BBB sets. The empty bar is the minimum load. Existing workouts stay unchanged.</p>
+            </>,
+          )}
+          {group(
+            "timers",
+            "Rest Timers",
+            <>
 
               {(["warmup", "working", "bbb"] as const).map((kind) => (
                 <label className="field-row" key={kind}>
@@ -616,6 +613,7 @@ export function Settings({
                       : "BBB"}{" "}
                   (seconds)
                   <NumericInput
+                    designSystem
                     min="0"
                     max="3600"
                     step="1"
@@ -633,7 +631,7 @@ export function Settings({
                   Timer sound
                   <small>Play the selected chime at completion</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.timerAlerts.sound}
                   onChange={(event) =>
@@ -650,7 +648,7 @@ export function Settings({
                 <span>
                   Timer vibration<small>Where supported by your device</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.timerAlerts.vibration}
                   onChange={(event) =>
@@ -668,7 +666,7 @@ export function Settings({
                   Timer notifications
                   <small>Requires permission · iPhone: Home Screen app</small>
                 </span>
-                <input
+                <Input
                   type="checkbox"
                   checked={draft.timerAlerts.notifications}
                   onChange={async (event) => {
@@ -699,7 +697,7 @@ export function Settings({
               </label>
               <label className="field-row">
                 Timer chime
-                <select
+                <NativeSelect
                   value={draft.chime}
                   onChange={(e) => update({ chime: Number(e.target.value) })}
                 >
@@ -708,44 +706,81 @@ export function Settings({
                       {name}
                     </option>
                   ))}
-                </select>
-                <button
+                </NativeSelect>
+                <Button
+                  variant="icon"
                   type="button"
                   className="icon-button"
                   aria-label="Preview chime"
                   onClick={() => playChime(draft.chime)}
                 >
                   <Volume2 size={20} />
-                </button>
+                </Button>
               </label>
             </>,
           )}
           {group(
             "data",
             "Your data",
-            `Stored on this device · ${state.history.length} workouts`,
             <>
+              <Button
+                variant="text"
+                className="data-help-trigger"
+                onClick={() => setDataHelpOpen(true)}
+              >
+                About local data
+              </Button>
               <div className="data-actions">
-                <button className="secondary" onClick={backup}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    save();
+                    backup();
+                  }}
+                >
                   <Download size={18} /> JSON backup
-                </button>
-                <button className="secondary" onClick={markdown}>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    save();
+                    markdown();
+                  }}
+                >
                   <Download size={18} /> Markdown history
-                </button>
-                <label className="secondary import-label">
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="import-label"
+                  onClick={() => importInputRef.current?.click()}
+                >
                   <Upload size={18} /> Import backup
-                  <input
-                    type="file"
-                    accept="application/json,.json"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) importFile(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <button
-                  className="secondary danger-button"
+                </Button>
+                <Input
+                  ref={importInputRef}
+                  hidden
+                  aria-label="Import backup file"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) {
+                      setImporting(true);
+                      try {
+                        await importFile(file);
+                      } finally {
+                        setImporting(false);
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => {
                     if (
                       confirm(
@@ -761,10 +796,11 @@ export function Settings({
                   }}
                 >
                   <RotateCcw size={18} /> Reset cycle
-                </button>
+                </Button>
                 <div className="data-delete-section">
-                  <button
-                    className="secondary danger-button"
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     onClick={() => {
                       if (
                         !confirm(
@@ -784,24 +820,86 @@ export function Settings({
                     }}
                   >
                     <Trash2 size={18} /> Delete all cycles
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>,
           )}
-        </div>
+          {programOnly && <Button
+            variant="ghost"
+            className="settings-accessories-entry"
+            aria-label="Manage accessories"
+            onClick={() => {
+              setAccessoriesOpen(true);
+              window.scrollTo(0, 0);
+            }}
+          >
+            Accessories
+            <ChevronRight size={18} aria-hidden="true" />
+          </Button>}
+          {group(
+            "install",
+            "Install app",
+            <div className="settings-install">
+              <p><strong>iPhone / iPad</strong><br />In Safari, tap Share, then Add to Home Screen.</p>
+              <p><strong>Android</strong><br />In Chrome, open the menu, then Install app or Add to Home screen.</p>
+              <p className="subtle">Open REP531 online once and wait for “Ready offline” before training without a connection.</p>
+            </div>,
+          )}
+        </Accordion>
       )}
-      <div className="settings-save-bar">
-        <div>
-          <span role="status">
-            {message || (dirty ? "Unsaved changes" : "All changes saved")}
-          </span>
-          <small>Saving applies accessories to your current workout.</small>
-        </div>
-        <button className="primary" onClick={save}>
-          Save changes
-        </button>
-      </div>
+      <SaveToast
+        className="settings-autosave"
+        status={
+          persistenceStatus === "Save failed"
+            ? "Could not save to device"
+            : incompleteInput
+              ? "Finish entering a valid number"
+              : message ||
+                (dirty || persistenceStatus === "Saving…" ? "Saving…" : "Saved")
+        }
+      />
+      <Dialog open={dataHelpOpen} onOpenChange={setDataHelpOpen}>
+        <DialogContent>
+          <DialogTitle>Your data stays on this device</DialogTitle>
+          <DialogDescription className="mt-2">
+            REP531 saves your training in this browser. Browser storage can be
+            cleared, so download a JSON backup regularly. Importing a backup
+            replaces the saved data on this device.
+          </DialogDescription>
+          <div className="settings-ui-dialog-footer">
+            <DialogClose asChild>
+              <Button>Close</Button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={variationOpen} onOpenChange={setVariationOpen}>
+        <DialogContent className="cycle-variation-dialog">
+          <DialogTitle>Change cycle {state.cycle} variation</DialogTitle>
+          <DialogDescription>BBB Swap pairs Squat ↔ Deadlift and Bench ↔ Overhead press, using each lift’s own TM.</DialogDescription>
+          <Field label="Variation">
+            <NativeSelect aria-label="Variation" value={selectedVariation} onChange={event => setSelectedVariation(event.target.value as Variant)}>
+              <option value="normal">Normal BBB</option>
+              <option value="swap">BBB Swap</option>
+            </NativeSelect>
+          </Field>
+          <div className="cycle-variation-preview" aria-label="BBB lift preview">
+            <div className="cycle-variation-columns"><strong>Main lift</strong><span aria-hidden="true" /><strong>BBB lift</strong></div>
+            {draft.order.map(lift => <div key={lift}><span>{names[lift]}</span><span aria-hidden="true">→</span><strong>{names[selectedVariation === "swap" ? swappedLifts[lift] : lift]}</strong></div>)}
+          </div>
+          <p className="subtle">Your current workout and completed sessions stay unchanged. New cycles default to Normal BBB.</p>
+          <div className="settings-ui-dialog-footer">
+            <DialogClose asChild><Button variant="text">Cancel</Button></DialogClose>
+            <Button disabled={selectedVariation === cycleVariant(state.settings, state.cycle)} onClick={() => {
+              const next = changeCycleVariation(state, selectedVariation);
+              commit(next);
+              setDraft(previous => ({ ...previous, cycleVariants: { ...previous.cycleVariants, [state.cycle]: selectedVariation } }));
+              setVariationOpen(false);
+            }}>Apply to remaining workouts</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

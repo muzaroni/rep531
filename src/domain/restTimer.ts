@@ -68,6 +68,10 @@ export function extendRestTimer(
         : Math.min(86400, timer.pausedSeconds + seconds),
   };
 }
+export function shortenRestTimer(timer: RestTimerState, seconds: number, now: number): RestTimerState {
+  const reduction = Math.min(seconds, Math.max(0, timerSeconds(timer, now) - 1), timer.totalSeconds - 1);
+  return extendRestTimer(timer, -reduction);
+}
 export const setTypeNames = {
   warmup: "Warmup",
   working: "Working",

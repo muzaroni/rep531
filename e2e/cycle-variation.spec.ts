@@ -1,0 +1,34 @@
+import { test, expect } from './fixtures';
+
+test('mid-cycle variation changes preserve the active workout and can be cancelled', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+  await page.getByLabel('bbb set 1 weight', { exact: true }).fill('120');
+  await page.getByRole('button', { name: 'Overview', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit program', exact: true }).first().click();
+  await expect(page.getByText(/BBB Swap pairs Squat/)).toBeHidden();
+  await page.getByRole('button', { name: 'Change variation', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change cycle 1 variation' });
+  await dialog.getByLabel('Variation', { exact: true }).selectOption('swap');
+  await expect(dialog.locator('.cycle-variation-columns')).toHaveText('Main liftBBB lift');
+  await expect(dialog.locator('.cycle-variation-preview > div').nth(1)).toContainText('Deadlift');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByLabel('Current cycle variation', { exact: true })).toHaveText('Normal BBB');
+  await page.getByRole('button', { name: 'Change variation', exact: true }).click();
+  await expect(dialog.getByLabel('Variation', { exact: true })).toHaveValue('normal');
+  await dialog.getByLabel('Variation', { exact: true }).selectOption('swap');
+  const box = (await dialog.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
+  await dialog.getByRole('button', { name: 'Apply to remaining workouts', exact: true }).click();
+  await expect(page.getByLabel('Current cycle variation', { exact: true })).toHaveText('BBB Swap');
+  await page.reload();
+  await page.getByRole('button', { name: 'Resume workout', exact: true }).click();
+  await expect(page.getByText('Squat · 50% of 225 lb TM', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('bbb set 1 weight', { exact: true })).toHaveValue('120');
+  page.once('dialog', value => value.accept());
+  await page.getByRole('button', { name: 'Discard workout', exact: true }).click();
+  await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+  await expect(page.getByText('Deadlift · 50% of 275 lb TM', { exact: true })).toBeVisible();
+});

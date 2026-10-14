@@ -1,0 +1,383 @@
+/* Tailwind utilities without Preflight: existing screens retain their reset. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css";
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--role-action);
+  --color-primary-foreground: var(--role-on-action);
+  --color-secondary: var(--surface);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--role-action-hover);
+  --color-accent-foreground: var(--role-action);
+  --color-border: var(--line);
+  --color-input: var(--input-border);
+  --color-ring: var(--role-focus);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+.date-picker-field {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+.date-picker-field > input {
+  width: 100%;
+  padding-right: 48px;
+}
+.date-picker-field .date-picker-trigger {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--accent);
+}
+.date-picker-popover {
+  z-index: 130;
+  width: 318px;
+  max-width: calc(100vw - 2px);
+  padding: 4px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  background: #101011;
+  color: var(--text);
+  box-shadow: 0 12px 32px #0009;
+}
+.rep-calendar {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--role-action-container);
+  --rdp-day-height: 44px;
+  --rdp-day-width: 44px;
+  --rdp-day_button-height: 44px;
+  --rdp-day_button-width: 44px;
+  --rdp-nav_button-height: 44px;
+  --rdp-nav_button-width: 44px;
+  --rdp-selected-border: 0;
+  margin: 0;
+  font-size: 14px;
+}
+.rep-calendar .rdp-month_grid {
+  width: 100%;
+}
+.rep-calendar .rdp-month_caption {
+  height: 44px;
+  padding-left: 8px;
+  font-size: 15px;
+}
+.rep-calendar .rdp-day_button {
+  border-radius: 6px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.rep-calendar .rdp-day_button:hover {
+  background: var(--role-action-hover);
+}
+.rep-calendar .rdp-selected .rdp-day_button {
+  background: var(--accent);
+  color: var(--role-on-action);
+  font-weight: 650;
+}
+.rep-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--role-action-outline);
+}
+.rep-calendar .rdp-disabled {
+  opacity: 0.35;
+}
+.rep-calendar .rdp-weekday {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.rep-calendar .rdp-chevron {
+  fill: var(--accent);
+}
+.rep-calendar button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.save-toast {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 9px 12px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px #0006;
+  color: var(--text);
+  font-size: 13px;
+  pointer-events: none;
+}
+.save-toast[hidden] {
+  display: none;
+}
+.save-toast svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.save-spinner {
+  animation: save-spin 900ms linear infinite;
+}
+@keyframes save-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (min-width: 701px) {
+  .save-toast {
+    top: 76px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner {
+    animation: none;
+  }
+}
+
+.settings-ui-dialog {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(380px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  z-index: 101;
+  padding: 12px;
+  border: 1px solid var(--role-action-outline);
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px #0009;
+}
+.settings-ui-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000a;
+}
+.settings-ui-dialog p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.settings-ui-dialog h2 {
+  font-size: 18px;
+}
+.settings-ui-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Dense Settings rhythm with full-size interactive targets. */
+.settings-page .settings-sections {
+  gap: 6px;
+}
+.settings-page .settings-group {
+  position: relative;
+  padding-left: 12px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+.settings-page .settings-group[data-state="open"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--accent);
+}
+.settings-page .settings-group-toggle strong { font-weight: 500; }
+.settings-page .settings-group-toggle svg { color: var(--muted); }
+.settings-page .settings-group-toggle[data-state="open"] strong {
+  font-weight: 650;
+  color: var(--accent);
+}
+.settings-page .settings-group-toggle[data-state="open"] svg { color: var(--accent); }
+.settings-page .settings-group-toggle {
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 6px 0;
+}
+.settings-page .settings-sections {
+  gap: 0;
+}
+.settings-page .settings-group-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s linear 200ms;
+  padding: 0;
+  border-top: 0;
+}
+.settings-page .settings-group-content[data-state="open"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.settings-group-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+.settings-group-body {
+  padding: 2px 2px 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-page .settings-group-content,
+  .settings-page .settings-group-toggle svg {
+    transition: none;
+  }
+}
+.settings-page .settings-group-toggle strong {
+  font-size: 15px;
+}
+.settings-page .settings-accessories-entry {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 6px 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.settings-page .settings-accessories-entry svg {
+  color: var(--accent);
+}
+.settings-page .settings-group-toggle:hover {
+  background: #ffffff04;
+}
+.settings-page .field-row {
+  margin-top: 8px;
+  gap: 8px;
+  font-size: 14px;
+}
+.settings-page .toggle-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  min-height: 44px;
+  font-size: 14px;
+}
+.settings-page .toggle-row small {
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+.settings-page .settings-subheading {
+  font-size: 15px;
+  margin: 10px 0 6px;
+}
+.settings-page .stack-field {
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.settings-page .accessory-settings-link {
+  margin: 8px 0;
+  padding: 8px 10px;
+}
+.settings-page .settings-save-bar {
+  padding: 6px 10px;
+  gap: 8px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+.settings-page .settings-save-bar small {
+  display: none;
+}
+.settings-page .settings-save-bar [role="status"] {
+  font-size: 12px;
+}
+.settings-page .settings-save-bar button {
+  padding: 8px 10px;
+}
+.settings-page .settings-advanced > summary {
+  font-size: 14px;
+}
+.settings-page [data-slot="input"]:not([type="checkbox"]):not([type="file"]),
+.settings-page [data-slot="native-select"] {
+  min-height: 44px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1.25;
+}
+.settings-page button[data-slot="button"]:not(.settings-accessories-entry) {
+  min-height: 44px;
+  padding: 6px 10px;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.2;
+  border-radius: 6px;
+}
+.settings-page button[data-slot="button"] svg {
+  width: 16px;
+  height: 16px;
+}
+.settings-page .max-cell input {
+  min-height: 48px;
+  padding-bottom: 18px;
+}
+.settings-page .max-row > input {
+  min-height: 48px;
+}
+.settings-page .max-conversion {
+  font-size: 11px;
+  bottom: 5px;
+}
+
+/* Quiet outline actions, using the shared Button variants rather than legacy fills. */
+.settings-page .data-actions button[data-slot="button"] {
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  box-shadow: none;
+}
+.settings-page .data-actions button:not(.danger-button) {
+  background: var(--input);
+  border-color: var(--input-border);
+  color: var(--accent);
+}
+.settings-page .data-actions button:not(.danger-button):hover {
+  background: var(--surface-hover);
+  border-color: var(--role-action-outline);
+}
+.settings-page .data-actions button:not(.danger-button):active {
+  background: var(--role-action-pressed);
+}
+.settings-page .data-delete-section button {
+  width: 100%;
+}
+
+.settings-page [data-section="program"] .toggle-row,
+.settings-page [data-section="program"] .settings-advanced,
+.settings-page [data-section="timers"] .toggle-row { border-top: 0; }
+.settings-page [data-section="program"] .order-row { border-top: 0; border-bottom: 0; }
+.accessory-inline-manager .library-search input[data-slot="input"][type="search"] { padding-left: 34px; }

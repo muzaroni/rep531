@@ -29,6 +29,44 @@ function currentCycleHistory(state: AppState): Workout[] {
     .slice(-state.position);
 }
 
+// The optional overview card tracks only workouts that advanced this run's
+// cursor. Retrospective history-only entries never mark a program slot done.
+export function activeCyclePlan(state: AppState) {
+  const completed = currentCycleHistory(state);
+  return [1, 2, 3].map((week) => ({
+    week,
+    slots: state.settings.order.map((lift, index) => {
+      const position = (week - 1) * 4 + index;
+      const history = [...completed]
+        .reverse()
+        .find(
+          (workout) =>
+            workout.week === week &&
+            workout.lift === lift &&
+            position < state.position,
+        );
+      const active =
+        state.active?.cycle === state.cycle &&
+        state.active.week === week &&
+        state.active.lift === lift
+          ? state.active
+          : null;
+      return {
+        lift,
+        workout:
+          active ??
+          history ??
+          makeWorkout({ ...state, position, active: null }),
+        status: active
+          ? ("in progress" as const)
+          : history
+            ? ("completed" as const)
+            : ("planned" as const),
+      };
+    }),
+  }));
+}
+
 export function cycleCalendarStart(state: AppState, now = new Date()): Date {
   const currentWeek = Math.floor(state.position / 4) + 1;
   // Keep a stable cycle plan anchored to the earliest actual session available.

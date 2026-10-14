@@ -42,7 +42,11 @@ export function createPastWorkout(
     position: (input.week - 1) * 4 + state.settings.order.indexOf(input.lift),
     active: null,
   });
-  return { ...workoutWithDate(workout, input.date, now), historyOnly: true };
+  return {
+    ...workoutWithDate(workout, input.date, now),
+    startedAt: undefined,
+    historyOnly: true,
+  };
 }
 
 export function canAdvancePastWorkout(state: AppState): boolean {

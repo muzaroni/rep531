@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 
@@ -24,33 +25,30 @@ test("skipping an idle deload advances once and keeps cycle increases on repeate
     buffer: Buffer.from(JSON.stringify(backup)),
   });
   await expect(
-    page.getByText("12 / 16 workouts", { exact: true }),
+    page.getByText("12 of 16 workouts", { exact: true }),
   ).toBeVisible();
   await nav("Settings");
   await openSettingsGroup(page, "program");
   await page.getByRole("checkbox", { name: /Skip deload week/ }).check();
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await openSettingsGroup(page, "maxes");
   await expect(
     page.getByRole("spinbutton", { name: "Squat training max", exact: true }),
   ).toHaveValue("235");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await nav("Overview");
   await expect(
-    page.getByText("0 / 12 workouts", { exact: true }),
+    page.getByText("0 of 12 workouts", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".overview-heading .eyebrow")).toHaveText(
     "CYCLE 2 · WEEK 1 / 3",
   );
-  await expect(page.locator(".overview-tm strong")).toHaveText("235 lb");
   await page.reload();
-  await expect(page.locator(".overview-tm strong")).toHaveText("235 lb");
+  await nav("Settings");
+  await openSettingsGroup(page, "maxes");
+  await expect(
+    page.getByLabel("Squat training max", { exact: true }),
+  ).toHaveValue("235");
 });
 
 test("skip options persist, warmups can be skipped now, and only main/BBB gates finishing", async ({
@@ -107,15 +105,12 @@ test("skip options persist, warmups can be skipped now, and only main/BBB gates 
   await page.getByRole("checkbox", { name: /Skip warmups/ }).check();
   await openSettingsGroup(page, "program");
   await page.getByRole("checkbox", { name: /Skip deload week/ }).check();
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await page.reload();
   await expect(
-    page.getByText("1 / 12 workouts", { exact: true }),
+    page.getByText("1 of 12 workouts", { exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".overview-weeks button")).toHaveCount(3);
+  await expect(page.locator(".week-swipe-dots span")).toHaveCount(3);
   await nav("Start workout");
   await expect(
     page.getByRole("heading", { name: "Warm up", exact: true }),
@@ -131,125 +126,45 @@ test("skip options persist, warmups can be skipped now, and only main/BBB gates 
   ).toBeChecked();
 });
 
-test("named themes lead Preferences with colored text and responsive flare", async ({
+test("Event Horizon colors actions and keeps its black surfaces", async ({
   page,
 }) => {
   const nav = (name: string) =>
     page.getByRole("button", { name, exact: true }).click();
   await page.goto("./");
-  const gradients = new Set<string>();
-  for (const [value, label, color] of [
-    ["lime", "Acid Moss", "rgb(196, 255, 36)"],
-    ["blue", "Deep Cosmos", "rgb(54, 185, 255)"],
-    ["orange", "Solar Flare", "rgb(255, 140, 38)"],
-    ["starry", "Starry Night", "rgb(216, 232, 255)"],
-    ["horizon", "Event Horizon", "rgb(203, 213, 225)"],
-  ]) {
-    await nav("Settings");
-    const preferences = page.locator(".panel").filter({
-      has: page.getByRole("heading", {
-        name: "Appearance & device",
-        exact: true,
-      }),
-    });
-    await openSettingsGroup(page, "appearance");
-    await expect(preferences.locator("select").first()).toHaveAccessibleName(
-      "Theme color",
-    );
-    const select = page.getByRole("combobox", {
-      name: "Theme color",
-      exact: true,
-    });
-    await openSettingsGroup(page, "appearance");
-    await select.selectOption(value);
-    await openSettingsGroup(page, "appearance");
-    await expect(select.locator(`option[value="${value}"]`)).toHaveText(label);
-    expect(await select.evaluate((el) => getComputedStyle(el).color)).toBe(
-      color,
-    );
-    expect(
-      await select
-        .locator(`option[value="${value}"]`)
-        .evaluate((el) => getComputedStyle(el).color),
-    ).toBe(color);
-    await page
-      .getByRole("button", { name: "Save changes", exact: true })
-      .first()
-      .click();
-    // Shared action styles must follow the saved theme on every page.
-    await openSettingsGroup(page, "data");
-    for (const action of ["JSON backup", "Markdown history"]) {
-      expect(
-        await page
-          .getByRole("button", { name: action, exact: true })
-          .evaluate((el) => getComputedStyle(el).color),
-      ).toBe(color);
-    }
-    expect(
-      await page
-        .locator(".import-label")
-        .evaluate((el) => getComputedStyle(el).color),
-    ).toBe(color);
-    await openSettingsGroup(page, "data");
-    await page
-      .locator(".data-actions")
-      .screenshot({ path: `test-results/theme-${value}-data-actions.png` });
-    await nav("History");
-    for (const action of ["Add past workout", "Export"]) {
-      expect(
-        await page
-          .getByRole("button", { name: action, exact: true })
-          .evaluate((el) => getComputedStyle(el).color),
-      ).toBe(color);
-    }
-    await page
-      .locator(".history-actions")
-      .screenshot({ path: `test-results/theme-${value}-history-actions.png` });
-    await nav("Overview");
-    expect(
-      await page
-        .getByRole("button", { name: "Log cardio", exact: true })
-        .evaluate((el) => getComputedStyle(el).color),
-    ).toBe(color);
-    gradients.add(
-      await page
-        .locator(".app")
-        .evaluate((el) => getComputedStyle(el).backgroundImage),
-    );
-    if (value === "horizon") {
-      expect(
-        await page
-          .locator("html")
-          .evaluate((el) => getComputedStyle(el).backgroundColor),
-      ).toBe("rgb(0, 0, 0)");
-      expect(
-        await page
-          .locator(".next-workout")
-          .evaluate((el) => getComputedStyle(el).backgroundColor),
-      ).toBe("rgb(0, 0, 0)");
-      expect(
-        await page
-          .locator(".app")
-          .evaluate((el) => getComputedStyle(el).backgroundImage),
-      ).not.toContain("gradient");
-    }
-    for (const width of [320, 390, 1440]) {
-      await page.setViewportSize({ width, height: 844 });
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth <= innerWidth,
-        ),
-      ).toBe(true);
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
-    const notice = page.getByRole("button", { name: "Got it", exact: true });
-    if (await notice.isVisible()) await notice.click();
-    await page.screenshot({
-      path: `test-results/theme-${value}.png`,
-      fullPage: true,
-    });
+  await nav("Settings");
+  await openSettingsGroup(page, "appearance");
+  await expect(page.getByRole("combobox", { name: "Theme color" })).toHaveCount(0);
+  await expect(page.locator(".settings-group-toggle small")).toHaveCount(0);
+  await openSettingsGroup(page, "data");
+  for (const action of ["JSON backup", "Markdown history"]) {
+    await expect(page.getByRole("button", { name: action, exact: true })).toHaveCSS("color", "rgb(184, 145, 4)");
   }
-  expect(gradients.size).toBe(5);
+  await expect(page.locator(".import-label")).toHaveCSS("color", "rgb(184, 145, 4)");
+  await expect(page.getByRole("button", { name: "Reset cycle", exact: true })).toHaveCSS("color", "rgb(255, 154, 154)");
+  await nav("History");
+  for (const action of ["Add past workout", "Export"]) {
+    await expect(page.getByRole("button", { name: action, exact: true })).toHaveCSS("color", "rgb(184, 145, 4)");
+  }
+  await nav("Overview");
+  await expect(page.getByRole("button", { name: "Log cardio", exact: true })).toHaveCSS("color", "rgb(184, 145, 4)");
+  const colorRoles = await page.locator("html").evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return {
+      primary: styles.getPropertyValue("--accent").trim(),
+      secondary: styles.getPropertyValue("--accent-secondary").trim(),
+      container: styles.getPropertyValue("--role-action-container").trim(),
+      input: styles.getPropertyValue("--input").trim(),
+    };
+  });
+  expect(colorRoles).toEqual({ primary: "#b89104", secondary: "#b59a36", container: "#29250f", input: "#0d0d0e" });
+  await expect(page.locator("html")).toHaveCSS("background-color", "rgb(0, 0, 0)");
+  await expect(page.locator(".next-workout")).toHaveCSS("background-color", "rgba(18, 18, 19, 0.75)");
+  await expect(page.locator(".app")).not.toHaveCSS("background-image", /gradient/);
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
   const sky = page.locator(".star-field");
   await expect(sky).toHaveAttribute("aria-hidden", "true");
   await page.emulateMedia({ reducedMotion: "no-preference" });

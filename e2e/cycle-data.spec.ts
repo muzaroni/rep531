@@ -38,7 +38,7 @@ test("delete cycles confirms, cancellation preserves records, and deletion persi
   await click("Settings");
   await openSettingsGroup(page, "data");
   await expect(
-    page.getByText("Stored on this device · 1 workouts", { exact: true }),
+    page.getByRole("button", { name: "Your data", exact: true }),
   ).toBeVisible();
   expect(
     await page.evaluate(() => localStorage.getItem("bbb-rest-timer")),
@@ -72,9 +72,14 @@ test("delete cycles confirms, cancellation preserves records, and deletion persi
     "CYCLE 1",
   );
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".overview-tm strong")).toHaveText("225 lb");
+  await click("Settings");
+  await openSettingsGroup(page, "maxes");
+  await expect(
+    page.getByLabel("Squat training max", { exact: true }),
+  ).toHaveValue("225");
+  await click("Overview");
   await click("Start workout");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

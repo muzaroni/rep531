@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 
@@ -30,13 +31,10 @@ test("correcting a completed date updates the calendar and survives reload witho
   await page
     .getByRole("combobox", { name: "Weight units", exact: true })
     .selectOption("kg");
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await click("History");
   await page.locator(".history-row").first().click();
-  await expect(page.locator(".tm-tag strong")).toContainText("kg");
+  await expect(page.locator(".set-table-labels").first()).toContainText("KG");
   await expect(page.getByLabel("Session notes")).toBeDisabled();
   await expect(page.getByRole("checkbox").first()).toBeDisabled();
   const date = page.getByLabel("Workout date", { exact: true });
@@ -55,13 +53,14 @@ test("correcting a completed date updates the calendar and survives reload witho
   );
   await click("Overview");
   await expect(
-    page.getByText("1 / 16 workouts", { exact: true }),
+    page.getByText("1 of 16 workouts", { exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("button", {
-      name: /^Wednesday, October 7, 2026.*Squat logged/,
-    }),
-  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /Squat · Logged · main sets/ })
+    .click();
+  await expect(page.getByRole("region", { name: "Day details" })).toContainText(
+    "Wednesday, Oct 7",
+  );
   await page.reload();
   await click("History");
   await page.locator(".history-row").first().click();
@@ -128,7 +127,7 @@ test("past draft survives reload, preserves the active workout and saves on its 
   await expect(page.locator(".history-list")).toContainText("Bench press");
   await click("Overview");
   await expect(
-    page.getByText("0 / 16 workouts", { exact: true }),
+    page.getByText("0 of 16 workouts", { exact: true }),
   ).toBeVisible();
   await click("Resume workout");
   await expect(page.getByLabel("Workout date", { exact: true })).toHaveValue(
@@ -149,7 +148,7 @@ test("calendar seeds the chosen past session and opt-in completion advances once
     exact: true,
   });
   await calendar
-    .getByRole("button", { name: "Squat · next · show details", exact: true })
+    .getByRole("button", { name: /Squat · Next · main sets .* · show details/ })
     .click();
   await click("Log this past session");
   const dialog = page.getByRole("dialog", { name: "Add past workout" });
@@ -162,12 +161,12 @@ test("calendar seeds the chosen past session and opt-in completion advances once
   await click("Save past workout");
   await click("Overview");
   await expect(
-    page.getByText("1 / 16 workouts", { exact: true }),
+    page.getByText("1 of 16 workouts", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".next-workout h2")).toContainText("Bench press");
   await page.reload();
   await expect(
-    page.getByText("1 / 16 workouts", { exact: true }),
+    page.getByText("1 of 16 workouts", { exact: true }),
   ).toBeVisible();
   await click("History");
   await expect(

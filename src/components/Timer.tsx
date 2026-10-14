@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { X, Play, Pause, RotateCcw, Plus, Square } from "lucide-react";
+import { Play, Pause, RotateCcw, Square } from "lucide-react";
 import type { RestTimerController } from "../hooks/useRestTimer";
 import { timerClock } from "../domain/restTimer";
 export { chimeNames, playChime, unlockAudio } from "../lib/timerAudio";
@@ -16,28 +16,16 @@ export function TimerDisplay({
   return (
     <div className={`timer-display${timer ? "" : " timer-idle"}`}>
       <div
-        className="timer-ring"
+        className="timer-clock"
         role="timer"
         aria-label="Rest timer"
         aria-live="off"
       >
-        <svg viewBox="0 0 160 160" aria-hidden="true">
-          <circle className="timer-ring-track" cx="80" cy="80" r="70" />
-          <circle
-            className="timer-ring-progress"
-            cx="80"
-            cy="80"
-            r="70"
-            pathLength="100"
-            strokeDasharray="100"
-            strokeDashoffset={100 - progress * 100}
-          />
-        </svg>
         <div>
           <strong>{timerClock(left)}</strong>
           <small>
             {timer?.completed
-              ? "REST COMPLETE"
+              ? "DONE"
               : timer?.pausedSeconds !== null && timer
                 ? "PAUSED"
                 : timer
@@ -53,10 +41,11 @@ export function TimerDisplay({
       )}
       {timer && (
         <div className="timer-controls">
-          {!timer.completed && (
+          {
             <>
               <button
                 className="secondary"
+                disabled={timer.completed}
                 aria-label={
                   timer.pausedSeconds === null ? "Pause timer" : "Resume timer"
                 }
@@ -67,41 +56,48 @@ export function TimerDisplay({
                 }
               >
                 {timer.pausedSeconds === null ? (
-                  <Pause size={18} />
+                  <Pause size={16} aria-hidden="true" />
                 ) : (
-                  <Play size={18} />
+                  <Play size={16} aria-hidden="true" />
                 )}
-                {timer.pausedSeconds === null ? "Pause" : "Resume"}
               </button>
               <button
                 className="secondary"
-                aria-label="Add 30 seconds"
+                aria-label="Add 15 seconds"
                 onClick={controller.extend}
-                disabled={timer.totalSeconds >= 86400}
+                disabled={timer.completed || timer.totalSeconds >= 86400}
               >
-                <Plus size={18} />
-                30s
+                +15
+              </button>
+              <button
+                className="secondary"
+                aria-label="Subtract 15 seconds"
+                onClick={controller.shorten}
+                disabled={timer.completed || left <= 1}
+              >
+                −15
               </button>
             </>
-          )}
+          }
           <button
             className="secondary"
             aria-label="Restart timer"
             onClick={controller.restart}
           >
-            <RotateCcw size={18} />
-            Restart
+            <RotateCcw size={16} aria-hidden="true" />
           </button>
           <button
             className="timer-stop"
             aria-label="Stop timer"
             onClick={controller.stop}
           >
-            <Square size={17} />
-            Stop
+            <Square size={16} aria-hidden="true" />
           </button>
         </div>
       )}
+      <div className="timer-progress" aria-hidden="true">
+        <span style={{ width: `${progress * 100}%` }} />
+      </div>
     </div>
   );
 }
@@ -119,17 +115,16 @@ export function RestTimer({ controller }: { controller: RestTimerController }) {
       className="timer-sheet"
       role="dialog"
       aria-label="Rest timer controls"
-      style={{ transform: `translateX(-50%) translateY(${offset}px)` }}
+      style={{ transform: `translateY(${offset}px)` }}
       onKeyDown={(event) => {
         if (event.key === "Escape") hide();
       }}
     >
       <div className="timer-sheet-heading">
-        <h2>Rest timer</h2>
         <button
           className="timer-drag-handle"
-          aria-label="Pull down to hide timer"
-          title="Pull down to hide · Timer keeps running"
+          aria-label="Dismiss timer"
+          title="Tap the countdown or pull down to hide · Timer keeps running"
           onClick={hide}
           onPointerDown={(event) => {
             origin.current = event.clientY;
@@ -151,14 +146,7 @@ export function RestTimer({ controller }: { controller: RestTimerController }) {
             setOffset(0);
           }}
         >
-          <span />
-        </button>
-        <button
-          className="icon-button"
-          aria-label="Dismiss timer"
-          onClick={hide}
-        >
-          <X size={20} />
+          <span className="sr-only">Hide rest timer</span>
         </button>
       </div>
       <TimerDisplay controller={controller} />

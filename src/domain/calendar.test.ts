@@ -2,12 +2,45 @@ import { describe, expect, it } from "vitest";
 import { defaults } from "./model";
 import { makeWorkout } from "./calculations";
 import {
+  activeCyclePlan,
   calendarDate,
   calendarDay,
   calendarWeek,
   cycleCalendarStart,
   shiftDay,
 } from "./calendar";
+
+it("previews three training weeks using current-run completions and active snapshots", () => {
+  const state = defaults();
+  const completed = makeWorkout(state);
+  completed.completedAt = new Date(2026, 9, 5, 13).toISOString();
+  completed.sets.find((set) => set.kind === "working")!.weight = 155;
+  state.history = [completed];
+  state.position = 1;
+  state.active = makeWorkout(state);
+  const historyOnly = makeWorkout({ ...state, position: 4, active: null });
+  historyOnly.historyOnly = true;
+  historyOnly.completedAt = new Date(2026, 9, 6, 13).toISOString();
+  state.history.push(historyOnly);
+
+  const plan = activeCyclePlan(state);
+  expect(plan).toHaveLength(3);
+  expect(plan.flatMap((week) => week.slots)).toHaveLength(12);
+  expect(plan[0].slots[0]).toMatchObject({
+    status: "completed",
+    workout: completed,
+  });
+  expect(plan[0].slots[1]).toMatchObject({
+    status: "in progress",
+    workout: state.active,
+  });
+  expect(plan[1].slots[0].status).toBe("planned");
+  expect(plan[1].slots[0].workout.historyOnly).not.toBe(true);
+
+  state.active = null;
+  state.position = 0;
+  expect(activeCyclePlan(state)[0].slots[0].status).toBe("planned");
+});
 
 describe("cycle calendar", () => {
   it("does not treat retained history as the new cycle run after a reset", () => {

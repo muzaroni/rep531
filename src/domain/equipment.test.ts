@@ -1,8 +1,35 @@
 import { describe, it, expect } from "vitest";
-import { defaultEquipment, defaults, lifts } from "./model";
+import { defaultEquipment, defaults, lifts, settingsSchema } from "./model";
 import { nearestLoad, plateLoad } from "./equipment";
 import { changeUnits, makeWorkout, otherUnitMax } from "./calculations";
 describe("equipment-aware rounding", () => {
+  it("rounds in the chosen direction using balanced available plates", () => {
+    const equipment = defaultEquipment().kg;
+    equipment.plates = [25];
+    expect(nearestLoad(102, equipment, 2.5, "down")).toBe(70);
+    expect(nearestLoad(102, equipment, 2.5, "up")).toBe(120);
+    expect(nearestLoad(120, equipment, 2.5, "up")).toBe(120);
+    expect(nearestLoad(120, equipment, 2.5, "down")).toBe(120);
+    expect(nearestLoad(10, equipment, 2.5, "down")).toBe(20);
+    equipment.plates = [4, 3];
+    expect(nearestLoad(33, equipment, 1, "down")).toBe(32);
+    expect(nearestLoad(33, equipment, 1, "up")).toBe(34);
+  });
+  it("uses rounding direction for new prescriptions and defaults older backups to nearest", () => {
+    const state = defaults();
+    state.settings.loadRounding = "up";
+    const up = makeWorkout(state);
+    state.settings.loadRounding = "down";
+    const down = makeWorkout(state);
+    expect(up.sets.find(set => set.kind === "working")!.weight).toBe(150);
+    expect(down.sets.find(set => set.kind === "working")!.weight).toBe(145);
+    expect(up.sets.find(set => set.kind === "bbb")!.weight).toBe(115);
+    expect(down.sets.find(set => set.kind === "bbb")!.weight).toBe(110);
+    const { loadRounding: _direction, ...older } = state.settings;
+    expect(settingsSchema.parse(older).loadRounding).toBe("nearest");
+    expect(settingsSchema.safeParse({ ...older, loadRounding: "invalid" }).success).toBe(false);
+    expect(settingsSchema.parse(JSON.parse(JSON.stringify(state.settings))).loadRounding).toBe("down");
+  });
   it("rounds the 225 lb example to 100 kg with 40 kg on each side", () => {
     const equipment = defaultEquipment().kg;
     const load = nearestLoad(225 * 0.45359237, equipment, 2.5);

@@ -1,3 +1,4 @@
+import { waitForSettingsAutosave } from "./fixtures";
 import { openSettingsGroup } from "./settings-navigation";
 import { test, expect } from "./fixtures";
 const settings = async (page: import("@playwright/test").Page) => {
@@ -5,12 +6,9 @@ const settings = async (page: import("@playwright/test").Page) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
 };
 const save = async (page: import("@playwright/test").Page) => {
-  await page
-    .getByRole("button", { name: "Save changes", exact: true })
-    .first()
-    .click();
+  await waitForSettingsAutosave(page);
   await expect(
-    page.getByRole("status").filter({ hasText: "Settings saved" }),
+    page.locator(".settings-autosave"),
   ).toBeVisible();
 };
 test("unit switching keeps equipment banks intact and snaps converted maxes to available pairs", async ({
@@ -87,11 +85,11 @@ test("accessories are categorized and selected independently for each day", asyn
 }) => {
   await settings(page);
   await openSettingsGroup(page, "accessories");
-  await page.locator(".accessory-library > summary").click();
   await openSettingsGroup(page, "accessories");
   await page
     .getByRole("button", { name: "Edit library Lat pulldown", exact: true })
     .click();
+  await page.locator(".accessory-inline-details > summary").click();
   await expect(
     page
       .getByRole("combobox", { name: "Lat pulldown category", exact: true })
@@ -117,25 +115,19 @@ test("accessories are categorized and selected independently for each day", asyn
   }
   for (const name of ["Lat pulldown", "Push ups", "Split squat", "Cable row"]) {
     await openSettingsGroup(page, "accessories");
-    await page
-      .getByRole("checkbox", { name: `Squat accessory ${name}`, exact: true })
-      .check();
+    const option = page.getByRole("button", { name: `Add ${name}`, exact: true });
+    if (await option.isVisible()) await option.click();
+    else await expect(page.getByRole("button", { name: `Edit ${name}`, exact: true })).toBeVisible();
   }
   await page.getByRole("tab", { name: "Bench press", exact: true }).click();
   await openSettingsGroup(page, "accessories");
   await expect(
-    page.getByRole("checkbox", {
-      name: "Bench press accessory Push ups",
-      exact: true,
-    }),
-  ).not.toBeChecked();
+    page.getByRole("button", { name: "Add Push ups", exact: true }),
+  ).toBeVisible();
   await openSettingsGroup(page, "accessories");
   await page
-    .getByRole("checkbox", {
-      name: "Bench press accessory Push ups",
-      exact: true,
-    })
-    .check();
+    .getByRole("button", { name: "Add Push ups", exact: true })
+    .click();
   await save(page);
   await page.getByRole("button", { name: "Overview", exact: true }).click();
   await page
@@ -161,104 +153,27 @@ test("accessories are categorized and selected independently for each day", asyn
     ),
   ).toBe(true);
 });
-test("BBB Swap uses the paired lift and the option persists for the next cycle", async ({
-  page,
-}) => {
+test("program shows the current variation without current or future cycle selectors", async ({ page }) => {
   await settings(page);
   await openSettingsGroup(page, "program");
-  await page
-    .getByRole("combobox", { name: "Cycle 1 variation", exact: true })
-    .selectOption("swap");
-  await openSettingsGroup(page, "program");
-  await page
-    .getByRole("combobox", { name: "Cycle 2 variation", exact: true })
-    .selectOption("swap");
-  await save(page);
+  await expect(page.getByLabel("Current cycle variation", { exact: true })).toHaveText("Normal BBB");
+  await expect(page.getByRole("combobox", { name: /Cycle .*variation/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Overview", exact: true }).click();
-  await expect(
-    page.getByText("BBB · Deadlift · 5 × 10", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Start workout", exact: true })
-    .click();
-  await expect(
-    page.getByText("Deadlift · 50% of 275 lb TM", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("spinbutton", { name: "bbb set 1 weight", exact: true }),
-  ).toHaveValue("140");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await openSettingsGroup(page, "program");
-  await page
-    .getByRole("combobox", { name: "Cycle 1 variation", exact: true })
-    .selectOption("normal");
-  await save(page);
-  await page.getByRole("button", { name: "Workout", exact: true }).click();
-  await expect(
-    page.getByText("Deadlift · 50% of 275 lb TM", { exact: true }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit program", exact: true }).first().click();
+  await expect(page.getByLabel("Current cycle variation", { exact: true })).toHaveText("Normal BBB");
+  await expect(page.getByRole("combobox", { name: /Cycle .*variation/ })).toHaveCount(0);
 });
-test("themes change highlights while keeping neutral surfaces and fitting narrow phones", async ({
+test("Event Horizon keeps neutral surfaces and fits narrow phones", async ({
   page,
 }) => {
   await settings(page);
   await expect(
     page.getByRole("button", { name: /Move .* (up|down)/ }),
   ).toHaveCount(0);
-  const before = await page
-    .locator(".app")
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
   await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("blue");
-  await save(page);
-  const blue = await page
-    .locator(".app")
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(blue).toBe(before);
-  const inputBlue = await page
-    .getByRole("combobox", { name: "Weight units", exact: true })
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
-  const accentBlue = await page
-    .locator(".primary")
-    .first()
-    .evaluate((el) => getComputedStyle(el).backgroundImage);
-  const panelBlue = await page
-    .locator(".panel")
-    .first()
-    .evaluate((el) => getComputedStyle(el).backgroundColor);
-  await page.screenshot({
-    path: "test-results/blue-settings.png",
-    fullPage: true,
-  });
-  await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("orange");
-  await save(page);
-  expect(
-    await page
-      .locator(".panel")
-      .first()
-      .evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).toBe(panelBlue);
-  expect(
-    await page
-      .locator(".primary")
-      .first()
-      .evaluate((el) => getComputedStyle(el).backgroundImage),
-  ).not.toBe(accentBlue);
-  expect(
-    await page
-      .getByRole("combobox", { name: "Weight units", exact: true })
-      .evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).not.toBe(inputBlue);
-  await openSettingsGroup(page, "appearance");
-  await page
-    .getByRole("combobox", { name: "Theme color", exact: true })
-    .selectOption("lime");
-  await save(page);
+  await expect(page.getByRole("combobox", { name: "Theme color" })).toHaveCount(0);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "horizon");
+  await expect(page.getByRole("combobox", { name: "Weight units", exact: true })).toHaveCSS("background-color", "rgb(13, 13, 14)");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     expect(
@@ -271,7 +186,7 @@ test("themes change highlights while keeping neutral surfaces and fitting narrow
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettingsGroup(page, "maxes");
   await page.screenshot({
-    path: "test-results/lime-inputs.png",
+    path: "test-results/horizon-inputs.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "Overview", exact: true }).click();
@@ -282,7 +197,7 @@ test("themes change highlights while keeping neutral surfaces and fitting narrow
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
   ).toBeGreaterThanOrEqual(14);
   await page.screenshot({
-    path: "test-results/lime-dashboard.png",
+    path: "test-results/horizon-dashboard.png",
     fullPage: true,
   });
   for (const width of [320, 390, 768, 1440]) {
@@ -295,3 +210,5 @@ test("themes change highlights while keeping neutral surfaces and fitting narrow
     ).toBe(true);
   }
 });
+
+
