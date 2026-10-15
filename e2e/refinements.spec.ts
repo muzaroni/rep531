@@ -109,6 +109,8 @@ test("numeric fields stay empty while typing, retain 1RMs and save corrected val
     await field.pressSequentially(value);
     await expect(field).toHaveValue(value);
   }
+  // Reload only after the final edit's IndexedDB transaction is acknowledged.
+  await expect(page.locator(".save-toast")).toHaveText("Saved on device");
   await page.reload();
   await page.getByRole("button", { name: "Resume workout" }).click();
   await expect(
