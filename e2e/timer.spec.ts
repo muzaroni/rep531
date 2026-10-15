@@ -7,8 +7,11 @@ const nav = (page: import("@playwright/test").Page, name: string) =>
 test("compact rest sheet swipes away without stopping and survives reload", async ({
   page,
 }) => {
-  await page.clock.install();
+  const clockStart = new Date(2026, 9, 14, 12);
+  await page.clock.install({ time: clockStart });
   await page.goto("./");
+  // Advance initial page effects, then let only runFor advance the countdown.
+  await page.clock.pauseAt(new Date(clockStart.getTime() + 60_000));
   await nav(page, "Start workout");
   await page.getByLabel("warmup set 2 weight", { exact: true }).fill("100");
   await page.getByLabel("warmup set 2 reps", { exact: true }).fill("7");
