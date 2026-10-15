@@ -38,8 +38,9 @@ export function changeAccessorySetCount(
   workout: Workout,
   key: string,
   delta: 1 | -1,
+  editingHistory = false,
 ): Workout {
-  if (workout.completedAt) return workout;
+  if (workout.completedAt && !editingHistory) return workout;
   const groups = workoutAccessoryGroups(workout);
   const position = groups.findIndex((group) => group.key === key);
   const group = groups[position];
@@ -49,7 +50,7 @@ export function changeAccessorySetCount(
   const template = group.sets.at(-1) ?? group.template;
   const sets = [...workout.sets];
   if (delta === -1) {
-    const removable = [...group.sets].reverse().find((set) => !set.done);
+    const removable = editingHistory ? group.sets.at(-1) : [...group.sets].reverse().find((set) => !set.done);
     if (!removable) return workout;
     sets.splice(
       sets.findIndex((set) => set.id === removable.id),

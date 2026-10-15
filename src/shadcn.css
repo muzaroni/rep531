@@ -381,3 +381,12 @@
 .settings-page [data-section="timers"] .toggle-row { border-top: 0; }
 .settings-page [data-section="program"] .order-row { border-top: 0; border-bottom: 0; }
 .accessory-inline-manager .library-search input[data-slot="input"][type="search"] { padding-left: 34px; }
+
+/* Keep section boundaries, but remove internal Settings rules throughout. */
+.settings-page .settings-group-body .toggle-row,
+.settings-page .settings-group-body .order-row,
+.settings-page .settings-group-body .settings-advanced { border-top: 0; border-bottom: 0; }
+.settings-page .settings-group-content { display: block; overflow: hidden; transition: height 200ms ease, visibility 0s linear 200ms; }
+.settings-page .settings-group-content[data-state="open"] { transition-delay: 0s; }
+@media (prefers-reduced-motion: reduce) { .settings-page .settings-group-content { transition: none; } }
+.settings-page .settings-group-body .data-delete-section { border-top: 0; }

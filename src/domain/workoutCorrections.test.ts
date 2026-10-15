@@ -7,8 +7,38 @@ import {
   discardActiveWorkout,
 } from "./workoutCorrections";
 import { exportBackup, parseBackup } from "../data/storage";
+import { addWorkoutAccessory } from "./addWorkoutAccessory";
+import { accessoryGroupKey, changeAccessorySetCount } from "./accessorySets";
 
 describe("workout corrections", () => {
+  it("adds and removes historical accessories without changing program data or original-unit performance", () => {
+    const state = defaults();
+    const original = { ...makeWorkout(state), completedAt: new Date().toISOString() };
+    original.sets.forEach(set => { set.done = true; });
+    original.sets[0].weight = 137;
+    state.history = [original];
+    state.active = makeWorkout(state);
+    state.settings.units = "kg";
+    const catalog = state.settings.accessories.find(exercise => exercise.name === "Lat pulldown")!;
+    catalog.weight = 30;
+    let draft = workoutInPreferredUnits(original, state.settings);
+    const old = draft.sets.find(set => set.kind === "accessory")!;
+    expect(changeAccessorySetCount(draft, accessoryGroupKey(old), -1)).toBe(draft);
+    draft = changeAccessorySetCount(draft, accessoryGroupKey(old), -1, true);
+    draft = addWorkoutAccessory(draft, state.settings, catalog.id, true);
+    const corrected = correctHistoryWorkout(state, original.id, draft);
+    expect(corrected.history[0].sets.filter(set => set.name === old.name)).toHaveLength(4);
+    const added = corrected.history[0].sets.filter(set => set.accessoryId === catalog.id);
+    expect(added).toHaveLength(5);
+    expect(added[0].weight).toBeCloseTo(convertWeight(30, "kg", "lb"), 5);
+    expect(corrected.history[0].sets[0]).toEqual(original.sets[0]);
+    expect(corrected.history[0].completedAt).toBe(original.completedAt);
+    expect({ ...corrected, history: state.history }).toEqual(state);
+    expect(parseBackup(exportBackup(corrected))).toEqual(corrected);
+    const invalid = structuredClone(draft);
+    invalid.sets = invalid.sets.filter(set => set.kind !== "working");
+    expect(() => correctHistoryWorkout(state, original.id, invalid)).toThrow();
+  });
   it("discards only the active draft without changing progress or other records", () => {
     const state = defaults();
     state.active = makeWorkout(state);

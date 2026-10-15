@@ -48,6 +48,7 @@ export function HistoryWorkout({
         update={setDraft}
         readonly={!draft}
         editingHistory={!!draft}
+        accessorySettings={settings}
         changeDate={changeDate}
         finish={() => {
           if (!draft) return;

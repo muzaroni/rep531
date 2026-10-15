@@ -13,6 +13,7 @@
   font-display: swap;
 }
 :root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --bg: #000000;
   --panel: #101011b8;
   --surface: #171718cc;
@@ -48,6 +49,7 @@
   --role-disabled-opacity: 0.4;
 }
 :root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   font-family: "Reddit Sans", sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -468,7 +470,7 @@ footer {
   justify-content: space-between;
   border-top: 1px solid var(--line);
   margin-top: 36px;
-  padding: 23px 0 calc(26px + env(safe-area-inset-bottom));
+  padding: 23px 0 calc(26px + var(--safe-area-bottom));
   font-size: 12px;
   letter-spacing: 1.2px;
   color: var(--muted);
@@ -1017,7 +1019,7 @@ input[type="checkbox"] {
     border-top: 1px solid var(--line);
     background: var(--nav);
     backdrop-filter: blur(12px);
-    padding: 6px 8px calc(7px + env(safe-area-inset-bottom));
+    padding: 6px 8px calc(7px + var(--safe-area-bottom));
     justify-content: space-around;
     gap: 4px;
   }
@@ -1192,7 +1194,7 @@ input[type="checkbox"] {
     width: 17px;
   }
   .rest-timer {
-    bottom: calc(77px + env(safe-area-inset-bottom));
+    bottom: calc(77px + var(--safe-area-bottom));
     padding: 6px 10px;
     gap: 7px;
     max-width: calc(100% - 24px);
@@ -1202,7 +1204,7 @@ input[type="checkbox"] {
     font-size: 27px;
   }
   .pwa-notice {
-    bottom: calc(145px + env(safe-area-inset-bottom));
+    bottom: calc(145px + var(--safe-area-bottom));
     font-size: 14px;
     padding: 10px 14px;
   }
@@ -1943,7 +1945,7 @@ textarea {
   pointer-events: auto;
 }
 html {
-  scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(100px + var(--safe-area-bottom));
 }
 /* Compact workout rows: set + prescription, then plates, beside large inputs. */
 .set-section,
@@ -2988,7 +2990,7 @@ html {
 }
 .settings-save-bar {
   position: sticky;
-  bottom: calc(82px + env(safe-area-inset-bottom));
+  bottom: calc(82px + var(--safe-area-bottom));
   z-index: 8;
   display: flex;
   align-items: center;
@@ -3077,7 +3079,7 @@ html {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(63px + env(safe-area-inset-bottom));
+  bottom: calc(63px + var(--safe-area-bottom));
   z-index: 20;
   padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   background: var(--bg);
@@ -3203,7 +3205,7 @@ html {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(63px + env(safe-area-inset-bottom));
+  bottom: calc(63px + var(--safe-area-bottom));
   z-index: 19;
   min-height: 44px;
   padding: 0 14px;
@@ -3413,10 +3415,10 @@ body:has(.workout-elapsed-floating):has(.timer-sheet) .pwa-notice {
 /* Reserve scrollable space above the floating timer and fixed navigation. */
 body:has(.timer-sheet) main,
 body:has(.timer-reopen) main {
-  padding-bottom: calc(121px + env(safe-area-inset-bottom));
+  padding-bottom: calc(121px + var(--safe-area-bottom));
 }
 body:has(.timer-sheet) .finish-button {
-  scroll-margin-bottom: calc(230px + env(safe-area-inset-bottom));
+  scroll-margin-bottom: calc(230px + var(--safe-area-bottom));
 }
 
 /* Compact three-week top-set view. */
@@ -3663,11 +3665,11 @@ body:has(.timer-sheet) .finish-button {
   .timer-sheet,
   :root[data-theme="horizon"] .timer-sheet {
     bottom: 0;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--safe-area-bottom);
   }
   body:has(.timer-sheet) main,
   body:has(.timer-reopen) main {
-    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+    padding-bottom: calc(58px + var(--safe-area-bottom));
   }
 }
 .workout-notes { margin-top: 16px; }
@@ -3790,3 +3792,116 @@ body:has(.timer-sheet) .finish-button {
 .accessory-inline-fields:has(.accessory-inline-details[open]) .accessory-inline-actions { margin-top: 0; }
 .accessory-inline-title h1 { margin: 0; font-size: 32px; }
 .accessory-inline-manager .library-search input { padding-left: 34px; }
+
+/* Reserve the full iPhone navigation height, including its home-indicator inset. */
+@media (max-width: 700px) {
+  main { padding-bottom: calc(80px + var(--safe-area-bottom)); }
+}
+
+.monthly-calendar-card { padding: 12px; }
+.monthly-navigation { display: grid; grid-template-columns: 44px minmax(0,1fr) repeat(3,44px); align-items: center; }
+.monthly-navigation h3 { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: 0; text-align: center; margin: 0; white-space: nowrap; }
+.monthly-navigation .monthly-today-action { min-width: 44px; min-height: 44px; padding: 0; font-size: 12px; }
+.monthly-navigation .icon-button { background: transparent; border: 0; color: var(--accent); }
+.monthly-weekdays, .monthly-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 2px; }
+.monthly-weekdays { text-align: center; color: var(--muted); font-size: 12px; margin: 4px 0 6px; }
+.monthly-grid { touch-action: pan-y; }
+.monthly-day { position: relative; min-width: 0; min-height: 44px; height: 44px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); }
+.monthly-day[data-completed="true"] { border-color: var(--muted); }
+.monthly-day[aria-pressed="true"] { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
+.monthly-day[data-outside="true"] { color: var(--muted); }
+.monthly-day[data-outside="true"] .lift-icon { opacity: .5; }
+.monthly-date { position: absolute; left: 0; right: 0; top: 1px; text-align: center; font-size: 12px; line-height: 14px; }
+.monthly-day .lift-icon, .monthly-day .monthly-cardio { position: absolute; left: calc(50% - 8px); top: 16px; width: 16px; height: 16px; color: var(--accent); }
+.monthly-today { position: absolute; top: 5px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.monthly-week-dots { position: absolute; bottom: 3px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; align-items: center; min-height: 3px; }
+.monthly-week-dots i { width: 3px; height: 3px; border-radius: 50%; background: var(--muted); }
+.monthly-deload { font-size: 10px; line-height: 10px; color: var(--muted); }
+.monthly-week-dots:has(.monthly-deload) { bottom: 1px; }
+.monthly-more { position: absolute; right: 2px; bottom: 2px; font-size: 10px; color: var(--muted); }
+.monthly-cardio { color: var(--accent); }
+.monthly-key { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; color: var(--muted); font-size: 11px; }
+.monthly-key[hidden] { display: none; }
+.monthly-day-detail { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.monthly-detail-session { margin-top: 10px; }
+.monthly-detail-session > span { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.monthly-detail-session small { display: block; margin: 4px 0; color: var(--muted); font-size: 12px; }
+.monthly-day-detail .subtle { margin: 8px 0 0; font-size: 12px; }
+.daily-log-card > .section-heading h2 { font-size: 20px; }
+.daily-log-card > .section-heading { flex-wrap: wrap; gap: 4px; }
+.daily-log-card .history-row { border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; padding: 10px 0; }
+.daily-log-card .history-row + .history-row { border-top: 1px solid var(--line); }
+.daily-log-card .history-row small { overflow-wrap: anywhere; }
+.daily-log-card .history-row > div:not(.log-icon) { min-width: 0; }
+.daily-log-card .history-row time { font-size: 12px; }
+.daily-log-card .empty { background: transparent; border: 0; box-shadow: none; }
+@media (max-width: 390px) {
+  .monthly-calendar-card { margin-left: -15px; margin-right: -15px; padding-left: 2px; padding-right: 2px; }
+  .monthly-weekdays, .monthly-grid { gap: 0; }
+  .monthly-navigation, .monthly-key, .monthly-day-detail { margin-left: 10px; margin-right: 10px; }
+}
+
+/* Shared page typography and card rhythm across the primary tabs. */
+.page-title h1,
+.overview-heading h1,
+.accessory-inline-title h1,
+.empty h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -1.3px;
+}
+.page-title { margin-bottom: 18px; }
+.history-page { max-width: 820px; margin: 0 auto; }
+.history-actions { margin: 0 0 12px; justify-content: flex-end; }
+.dashboard-cards { display: grid; gap: 12px; min-width: 0; }
+.dashboard-cards > .panel { margin-top: 0; margin-bottom: 0; min-width: 0; }
+.card-picker-hint { font-size: 11px; color: var(--muted); margin: 2px 0 6px; }
+.overview-card-option > strong { flex: 1; min-width: 0; }
+.card-drag-handle { touch-action: none; cursor: grab; border: 0; background: transparent; color: var(--muted); }
+.card-drag-handle:active { cursor: grabbing; color: var(--accent); }
+.card-fixed-label { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 44px; color: var(--muted); font-size: 11px; }
+.guided-setup-dialog { width: min(420px, calc(100% - 24px)); padding: 18px; background: var(--bg); }
+.guided-setup-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.guided-setup-brand { font-size: 14px; font-weight: 650; letter-spacing: 1px; }
+.guided-setup-brand > span { color: var(--accent); }
+.guided-setup-dialog > h2 { margin: 8px 0; font-size: 26px; line-height: 1.15; letter-spacing: -.7px; }
+.guided-setup-dialog > h2:focus { outline: none; }
+.guided-setup-dialog .guided-setup-intro { margin: 0; font-size: 13px; line-height: 1.5; }
+.guided-step-track { display: flex; gap: 5px; margin: 16px 0; }
+.guided-step-track > span { flex: 1; height: 3px; background: var(--line); }
+.guided-step-track > span[data-active="true"] { background: var(--accent); }
+.guided-units-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 14px; }
+.guided-segment { display: flex; gap: 4px; }
+.guided-segment > button { min-height: 44px; font-size: 13px; padding: 6px 10px; }
+:root[data-theme="horizon"] .guided-setup-dialog .guided-segment > button[aria-pressed="true"],
+:root[data-theme="horizon"] .guided-setup-dialog .guided-setup-primary { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-border); }
+.guided-method { padding: 0; margin: 0; border: 0; min-width: 0; }
+.guided-method legend { margin-bottom: 6px; font-size: 13px; color: var(--muted); }
+.guided-method .guided-segment > button { flex: 1; min-width: 0; }
+.guided-setup-dialog .guided-method-note { margin: 8px 0 6px; font-size: 12px; }
+.guided-weight-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 64px; }
+.guided-weight-row > div:first-child { min-width: 0; }
+.guided-weight-row label { font-size: 16px; font-weight: 600; }
+.guided-weight-row small { display: block; font-size: 12px; color: var(--muted); }
+.guided-weight-input { display: flex; align-items: center; gap: 5px; flex: 0 0 112px; }
+.guided-weight-input input { width: 88px; min-width: 0; min-height: 44px; text-align: center; font-size: 22px; padding: 4px; }
+.guided-weight-input > span { color: var(--muted); font-size: 12px; }
+.guided-setup-dialog details { border-top: 1px solid var(--line); margin-top: 8px; }
+.guided-setup-dialog summary { min-height: 44px; align-content: center; color: var(--text); font-size: 13px; cursor: pointer; }
+.guided-setup-dialog summary::marker { color: var(--accent); }
+.guided-setup-dialog details .subtle { margin: 6px 0; font-size: 12px; }
+.guided-setup-dialog .guided-mixed summary { color: var(--muted); font-size: 12px; }
+.guided-setup-dialog .guided-mixed .field-row { font-size: 13px; gap: 8px; }
+.guided-mixed select { max-width: 160px; }
+.guided-setup-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.guided-setup-actions > button { min-height: 44px; font-size: 13px; }
+.guided-setup-actions > button:last-child { flex: 1; }
+.guided-setup-dialog .guided-defaults-note, .guided-setup-dialog .guided-revisit-note { margin: 10px 0 0; font-size: 11px; line-height: 1.5; }
+.guided-setup-dialog .initial-accessory-actions { bottom: -18px; }
+.guided-setup-dialog .accessory-inline-manager { margin-top: 12px; }
+@media (max-width: 700px) {
+  .page-title h1, .overview-heading h1, .accessory-inline-title h1, .empty h1 { font-size: 30px; }
+  .page-title { margin-bottom: 14px; }
+}

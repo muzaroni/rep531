@@ -17,7 +17,7 @@ export const test = base.extend<{ completeSetupAutomatically: boolean }>({
     if (completeSetupAutomatically) {
       await page.goto("./");
       await page
-        .getByRole("button", { name: "Use defaults", exact: true })
+        .getByRole("button", { name: "Use starter weights", exact: true })
         .click();
       await page
         .getByRole("button", { name: "Save setup", exact: true })

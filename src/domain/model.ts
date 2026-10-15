@@ -285,7 +285,7 @@ export const defaults = (): AppState => ({
     rest: { warmup: 60, working: 180, bbb: 90 },
     chime: 4,
     timerAlerts: { sound: true, vibration: true, notifications: false },
-    autoIncrease: false,
+    autoIncrease: true,
     increases: { squat: 10, bench: 5, deadlift: 10, press: 5 },
     legPresetVersion: 1,
     accessoryDefaultsVersion: 1,

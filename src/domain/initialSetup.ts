@@ -31,6 +31,19 @@ export function completeInitialSetup(
 ): AppState {
   if (!needsInitialSetup(state))
     throw new Error("Initial setup is already complete.");
+  return stateSchema.parse({
+    ...applyGuidedSetup(state, units, variant, entries),
+    initialSetupComplete: true,
+  });
+}
+
+// Reopening the guide updates preferences, never cycle progress or snapshots.
+export function applyGuidedSetup(
+  state: AppState,
+  units: Settings["units"],
+  variant: "normal" | "swap",
+  entries?: InitialEntries,
+): AppState {
   const settings = { ...changeUnits(state.settings, units) };
   if (entries) {
     settings.maxes = { ...settings.maxes };
@@ -45,12 +58,12 @@ export function completeInitialSetup(
         equipmentForUnits(settings),
         settings.rounding,
       );
-      settings.oneRepMaxes[lift] = entry.kind === "rm" ? entry.value : null;
+      settings.oneRepMaxes[lift] =
+        entry.kind === "rm" ? entry.value : settings.oneRepMaxes[lift];
     }
   }
   return stateSchema.parse({
     ...state,
-    initialSetupComplete: true,
     settings: {
       ...settings,
       cycleVariants: { ...settings.cycleVariants, [state.cycle]: variant },

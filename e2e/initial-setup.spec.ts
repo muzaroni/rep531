@@ -7,13 +7,36 @@ test("fresh install accepts 1RM and TM per lift, stores variation and never prom
   await page.goto("./");
   const setup = page.getByRole("dialog", { name: "Set up your training" });
   await expect(setup).toBeVisible();
+  const selectedUnit = setup.getByRole("button", { name: "lb", exact: true });
+  const otherUnit = setup.getByRole("button", { name: "kg", exact: true });
+  await expect(selectedUnit).toHaveAttribute("aria-pressed", "true");
+  expect(
+    await selectedUnit.evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).not.toBe(
+    await otherUnit.evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await setup.screenshot({
+      path: `test-results/guided-essentials-${width}.png`,
+    });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setup
+    .getByRole("button", { name: "My training max", exact: true })
+    .click();
+  await setup
+    .locator("summary")
+    .filter({ hasText: "Different weight types per lift" })
+    .click();
   await page.getByLabel("Squat max type").selectOption("rm");
   await page.getByLabel("Squat initial max").fill("200");
   await page.getByLabel("Bench press initial max").fill("135");
   await page.getByLabel("Deadlift max type").selectOption("rm");
   await page.getByLabel("Deadlift initial max").fill("300");
   await page.getByLabel("Overhead press initial max").fill("95");
-  await expect(setup).toContainText("TM: 180 lb");
+  await expect(setup).toContainText("Training max: 180 lb");
+  await setup.locator("summary").filter({ hasText: "Program ·" }).click();
   await page
     .getByRole("combobox", { name: "Cycle variation", exact: true })
     .selectOption("swap");
@@ -27,9 +50,7 @@ test("fresh install accepts 1RM and TM per lift, stores variation and never prom
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/initial-setup-mobile.png" });
-  await page
-    .getByRole("button", { name: "Choose accessories", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Save setup", exact: true }).click();
   await expect(setup).toHaveCount(0);
   await page.reload();
@@ -62,14 +83,12 @@ test("setup can wait, returns before the first workout and offers explicit metri
     .click();
   const setup = page.getByRole("dialog", { name: "Set up your training" });
   await expect(setup).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Weight units", exact: true })
-    .selectOption("kg");
-  await page
-    .getByRole("button", { name: "Choose accessories", exact: true })
-    .click();
+  await setup.getByRole("button", { name: "kg", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(setup.getByRole("alert")).toContainText("all four lifts");
-  await page.getByRole("button", { name: "Use defaults", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Use starter weights", exact: true })
+    .click();
   await page.getByRole("button", { name: "Save setup", exact: true }).click();
   await expect(setup).toHaveCount(0);
   await expect(page.locator(".overview-main-sets")).toContainText("kg");
@@ -83,7 +102,7 @@ test("onboarding assigns different accessories per day, keeps drafts on Back and
   const click = (name: string) =>
     page.getByRole("button", { name, exact: true }).click();
   await page.goto("./");
-  await click("Use defaults");
+  await click("Use starter weights");
   const setup = page.getByRole("dialog", { name: "Set up your training" });
   await expect(setup).toContainText("STEP 2 OF 2");
   await page
@@ -111,7 +130,7 @@ test("onboarding assigns different accessories per day, keeps drafts on Back and
     .click();
   await click("Back");
   await expect(setup).toContainText("STEP 1 OF 2");
-  await click("Use defaults");
+  await click("Use starter weights");
   await page.getByRole("tab", { name: "Squat", exact: true }).click();
   await expect(setup.locator(".selected-accessories")).toContainText(
     "Goblet squat",
@@ -162,7 +181,7 @@ test("closing accessory setup leaves selections and completion uncommitted", asy
   const click = (name: string) =>
     page.getByRole("button", { name, exact: true }).click();
   await page.goto("./");
-  await click("Use defaults");
+  await click("Use starter weights");
   await page
     .getByRole("searchbox", { name: "Search accessories" })
     .fill("Push up");
@@ -172,7 +191,7 @@ test("closing accessory setup leaves selections and completion uncommitted", asy
   await expect(
     page.getByRole("dialog", { name: "Set up your training" }),
   ).toContainText("STEP 1 OF 2");
-  await click("Use defaults");
+  await click("Use starter weights");
   await expect(page.locator(".selected-accessories")).not.toContainText(
     "Push up",
   );
@@ -181,5 +200,3 @@ test("closing accessory setup leaves selections and completion uncommitted", asy
   );
   await click("Save setup");
 });
-
-

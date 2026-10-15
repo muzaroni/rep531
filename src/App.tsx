@@ -445,10 +445,12 @@ export default function App() {
               />
             ) : (
               <History
+                start={start}
+                editProgram={() => navigate("program")}
                 state={state}
                 open={setView}
                 exportHistory={markdown}
-                addPastWorkout={() => addPastWorkout()}
+                addPastWorkout={addPastWorkout}
               />
             ))}
           {(page === "settings" || page === "program") && (

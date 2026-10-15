@@ -39,6 +39,7 @@ import {
 import { chimeNames, playChime } from "./Timer";
 import { EquipmentEditor } from "./EquipmentEditor";
 import { AccessoryEditor } from "./AccessoryEditor";
+import { InitialSetup } from "./InitialSetup";
 import { NumericInput } from "./NumericInput";
 import { SaveToast } from "./SaveToast";
 import { Button } from "./ui/shadcn/button";
@@ -102,6 +103,7 @@ export function Settings({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dataHelpOpen, setDataHelpOpen] = useState(false);
   const [variationOpen, setVariationOpen] = useState(false);
+  const [guidedSetupOpen, setGuidedSetupOpen] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState<Variant>("normal");
   const [openSection, setOpenSection] = useState<SettingsSection | null>(() => {
     if (programOnly) return "program";
@@ -215,6 +217,7 @@ export function Settings({
             <span>.</span>
           </h1>
         </div>
+        {!programOnly && <Button variant="text" disabled={incompleteInput || importing || !settingsSchema.safeParse(draft).success} onClick={() => { latestSave.current(); setGuidedSetupOpen(true); }}>Guided setup</Button>}
       </div>}
       {accessoriesOpen ? (
         <AccessoryEditor settings={draft} update={update} standalone />
@@ -859,6 +862,13 @@ export function Settings({
                 (dirty || persistenceStatus === "Saving…" ? "Saving…" : "Saved")
         }
       />
+      {guidedSetupOpen && <InitialSetup revisit state={{...state,settings:draft}} close={() => setGuidedSetupOpen(false)} save={next => {
+        const updated = normalizeCycleProgress({...state,settings:next.settings,active:state.active ? syncWorkoutAccessories(state.active,state.settings,next.settings) : null});
+        commit(updated);
+        setDraft(structuredClone(updated.settings));
+        setGuidedSetupOpen(false);
+        setMessage("");
+      }}/>}
       <Dialog open={dataHelpOpen} onOpenChange={setDataHelpOpen}>
         <DialogContent>
           <DialogTitle>Your data stays on this device</DialogTitle>

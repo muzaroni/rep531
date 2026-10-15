@@ -2,11 +2,11 @@ import type { Settings, Workout, WorkoutSet } from "./model";
 import { convertWeight, roundWeight } from "./calculations";
 import { accessoryGroupKey, workoutAccessoryGroups } from "./accessorySets";
 
-export function addWorkoutAccessory(workout: Workout, settings: Settings, id: string): Workout {
+export function addWorkoutAccessory(workout: Workout, settings: Settings, id: string, editingHistory = false): Workout {
   const exercise = settings.accessories.find(item => item.id === id);
-  if (!exercise || workout.completedAt) return workout;
+  if (!exercise || (workout.completedAt && !editingHistory)) return workout;
   const groups = workoutAccessoryGroups(workout);
-  if (groups.some(group => group.template.accessoryId === id && group.sets.length)) return workout;
+  if (groups.some(group => (group.template.accessoryId === id || (!group.template.accessoryId && group.template.name === exercise.name && group.template.category === exercise.category)) && group.sets.length)) return workout;
   const key = `id:${id}`;
   const old = groups.find(group => group.key === key);
   const template: WorkoutSet = old?.template ?? {

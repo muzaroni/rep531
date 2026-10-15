@@ -1,6 +1,7 @@
 import {
   type AppState,
   type Workout,
+  type WorkoutSet,
   stateSchema,
   workoutSchema,
 } from "./model";
@@ -26,10 +27,16 @@ export function correctHistoryWorkout(
   if (
     edited.id !== id ||
     edited.units !== displayed.units ||
-    edited.sets.length !== original.sets.length ||
-    edited.sets.some((set, index) => set.id !== original.sets[index].id)
+    JSON.stringify(edited.sets.filter(set => set.kind !== "accessory").map(set => set.id)) !== JSON.stringify(original.sets.filter(set => set.kind !== "accessory").map(set => set.id)) ||
+    edited.sets.some(set => original.sets.some(before => before.id === set.id && before.kind !== set.kind))
   )
     throw new Error("The workout changed. Reopen it before editing.");
+  const convertSet = (set: WorkoutSet, before?: WorkoutSet, shown?: WorkoutSet): WorkoutSet => ({
+    ...(before ?? set),
+    weight: before && shown && set.weight === shown.weight ? before.weight : Number(convertWeight(set.weight, edited.units, original.units).toFixed(6)),
+    reps: set.reps,
+    done: set.done,
+  });
   const corrected: Workout = {
     ...original,
     date:
@@ -37,21 +44,10 @@ export function correctHistoryWorkout(
         ? original.date
         : workoutWithDate(original, calendarDate(edited.date)).date,
     notes: edited.notes,
-    sets: original.sets.map((set, index) => ({
-      ...set,
-      weight:
-        edited.sets[index].weight === displayed.sets[index].weight
-          ? set.weight
-          : Number(
-              convertWeight(
-                edited.sets[index].weight,
-                edited.units,
-                original.units,
-              ).toFixed(6),
-            ),
-      reps: edited.sets[index].reps,
-      done: edited.sets[index].done,
-    })),
+    sets: edited.sets.map(set => convertSet(set, original.sets.find(before => before.id === set.id), displayed.sets.find(shown => shown.id === set.id))),
+    ...(edited.accessorySetOverrides ? { accessorySetOverrides: Object.fromEntries(Object.entries(edited.accessorySetOverrides).map(([key, override]) => [key, {
+      ...override, template: convertSet(override.template, original.accessorySetOverrides?.[key]?.template, displayed.accessorySetOverrides?.[key]?.template),
+    }])) } : {}),
   };
   return stateSchema.parse({
     ...state,

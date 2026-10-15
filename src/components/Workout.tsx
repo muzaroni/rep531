@@ -164,7 +164,7 @@ export function Workout({
           kind === "accessory"
             ? workoutAccessoryGroups(w).filter(group => group.sets.length > 0)
             : [{ key: kind, template: sets[0], sets }];
-        if ((kind === "accessory" ? !groups.length && (!accessorySettings || readonly || editingHistory) : !sets.length))
+        if ((kind === "accessory" ? !groups.length && (!accessorySettings || readonly) : !sets.length))
           return null;
         return (
           <section className={`panel set-section${kind === "accessory" ? " accessory-set-section" : ""}`} key={kind}>
@@ -183,7 +183,7 @@ export function Workout({
                   }[kind]
                 }
               </h2>
-              {kind === "accessory" && accessorySettings && !readonly && !editingHistory && (
+              {kind === "accessory" && accessorySettings && !readonly && (
                 <button className="icon-button workout-add-accessory" aria-label="Add accessory" onClick={() => setPickerOpen(true)}>
                   <Plus size={19} aria-hidden="true" />
                 </button>
@@ -207,7 +207,7 @@ export function Workout({
                   </button>
                 )}
             </div>
-            {kind === "accessory" && accessorySettings && !readonly && !editingHistory && (
+            {kind === "accessory" && accessorySettings && !readonly && (
               <p className="bbb-detail">Tap + to add an exercise</p>
             )}
             {kind === "bbb" && (
@@ -259,16 +259,16 @@ export function Workout({
                         {group.sets.length === 1 ? "set" : "sets"}
                       </small>
                     </div>
-                    {!readonly && !editingHistory && (
+                    {!readonly && (
                       <div className="accessory-set-controls">
                         <button
                           className="icon-button"
                           type="button"
                           aria-label={`Remove set from ${group.template.name}`}
-                          title="Remove last unfinished set"
-                          disabled={!group.sets.some((set) => !set.done)}
+                          title={editingHistory ? "Remove last set" : "Remove last unfinished set"}
+                          disabled={!editingHistory && !group.sets.some((set) => !set.done)}
                           onClick={() => {
-                            const next = changeAccessorySetCount(w, group.key, -1);
+                            const next = changeAccessorySetCount(w, group.key, -1, editingHistory);
                             const id = group.template.accessoryId ?? accessorySettings?.accessories.find(exercise => exercise.name === group.template.name && exercise.category === group.template.category)?.id;
                             if (id && updateAccessorySelection && !next.sets.some(set => set.kind === "accessory" && accessoryGroupKey(set) === group.key)) updateAccessorySelection(next, id, false);
                             else update(next);
@@ -285,7 +285,7 @@ export function Workout({
                             group.sets.length >= 20 || w.sets.length >= 2500
                           }
                           onClick={() =>
-                            update(changeAccessorySetCount(w, group.key, 1))
+                            update(changeAccessorySetCount(w, group.key, 1, editingHistory))
                           }
                         >
                           <Plus size={19} />
@@ -455,13 +455,14 @@ export function Workout({
           </div>
           <div className="workout-accessory-results">
             {accessorySettings?.accessories.filter(exercise => (category === "all" || exercise.category === category) && exercise.name.toLowerCase().includes(search.toLowerCase())).map(exercise => {
-              const present = w.sets.some(set => set.kind === "accessory" && set.accessoryId === exercise.id);
+              const matchesExercise = (set: WorkoutSet) => set.kind === "accessory" && (set.accessoryId === exercise.id || (!set.accessoryId && set.name === exercise.name && set.category === exercise.category));
+              const present = w.sets.some(matchesExercise);
               const selected = updateAccessorySelection ? accessorySettings.accessoryAssignments[w.lift].includes(exercise.id) : present;
-              return <button key={exercise.id} className="workout-accessory-choice" disabled={updateAccessorySelection ? !selected && w.sets.length + exercise.sets > 2500 : present || w.sets.length + exercise.sets > 2500} aria-label={`${selected ? (updateAccessorySelection ? "Remove" : "Added") : "Add"} ${exercise.name}`} onClick={() => {
+              return <button key={exercise.id} className="workout-accessory-choice" disabled={updateAccessorySelection ? !selected && w.sets.length + exercise.sets > 2500 : (!editingHistory && present) || (!present && w.sets.length + exercise.sets > 2500)} aria-label={`${selected ? (updateAccessorySelection || editingHistory ? "Remove" : "Added") : "Add"} ${exercise.name}`} onClick={() => {
                 if (updateAccessorySelection) {
-                  const next = selected ? { ...w, sets: w.sets.filter(set => set.accessoryId !== exercise.id || set.done), accessorySetOverrides: Object.fromEntries(Object.entries(w.accessorySetOverrides ?? {}).filter(([key]) => key !== `id:${exercise.id}`)) } : addWorkoutAccessory(w, accessorySettings, exercise.id);
+                  const next = selected ? { ...w, sets: w.sets.filter(set => !matchesExercise(set) || set.done), accessorySetOverrides: Object.fromEntries(Object.entries(w.accessorySetOverrides ?? {}).filter(([key]) => key !== `id:${exercise.id}`)) } : addWorkoutAccessory(w, accessorySettings, exercise.id);
                   updateAccessorySelection(next, exercise.id, !selected);
-                } else update(addWorkoutAccessory(w, accessorySettings, exercise.id));
+                } else if (editingHistory && present) update({ ...w, sets: w.sets.filter(set => !matchesExercise(set)), accessorySetOverrides: Object.fromEntries(Object.entries(w.accessorySetOverrides ?? {}).filter(([, override]) => !matchesExercise(override.template))) }); else update(addWorkoutAccessory(w, accessorySettings, exercise.id, editingHistory));
               }}>
                 <span>{exercise.name}</span>
                 {selected ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}

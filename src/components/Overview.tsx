@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
-import { Activity, ArrowRight, LayoutGrid, Minus, Plus } from "lucide-react";
+import { Activity, ArrowRight, LayoutGrid } from "lucide-react";
 import { names, type AppState, type Workout } from "../domain/model";
 import { makeWorkout, nextTrainingDay } from "../domain/calculations";
 import { LiftIcon } from "./LiftIcon";
-import { CycleCalendar } from "./CycleCalendar";
-import { ActiveCycleCard } from "./ActiveCycleCard";
-import { Button } from "./ui/Button";
-import { Dialog } from "./ui/Dialog";
 
-const activeCycleCardKey = "bbb-overview-active-cycle";
-const thisWeekCardKey = "bbb-overview-this-week";
+import { Button } from "./ui/Button";
+
+import { DashboardCards, useDashboardCards } from "./DashboardCards";
+
 type Props = {
   state: AppState;
   start: () => void;
@@ -27,29 +25,9 @@ export function Overview({
   addPastWorkout,
 }: Props) {
   const [manageCardsOpen, setManageCardsOpen] = useState(false);
-  const [showActiveCycle, setShowActiveCycle] = useState(() => {
-    try {
-      return localStorage.getItem(activeCycleCardKey) === "true";
-    } catch {
-      return false;
-    }
-  });
-  const [showThisWeek, setShowThisWeek] = useState(() => {
-    try {
-      return localStorage.getItem(thisWeekCardKey) !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const setCardVisibility = (key: string, visible: boolean) => {
-    if (key === activeCycleCardKey) setShowActiveCycle(visible);
-    else setShowThisWeek(visible);
-    try {
-      localStorage.setItem(key, String(visible));
-    } catch {
-      /* Card visibility is a local UI preference. */
-    }
-  };
+  const cards = useDashboardCards("overview");
+  const showThisWeek = cards.visible.includes("week"),
+    showActiveCycle = cards.visible.includes("cycle");
   const workout = useMemo(() => state.active ?? makeWorkout(state), [state]);
   const main = workout.sets.filter((set) => set.kind === "working");
   const bbb = workout.sets.find((set) => set.kind === "bbb");
@@ -67,8 +45,12 @@ export function Overview({
   return (
     <div className="lean-overview">
       <div className="overview-heading">
-        <p className="eyebrow">CYCLE {state.cycle} · WEEK {week} / {weeks}</p>
-        <h1>Overview<span>.</span></h1>
+        <p className="eyebrow">
+          CYCLE {state.cycle} · WEEK {week} / {weeks}
+        </p>
+        <h1>
+          Overview<span>.</span>
+        </h1>
         <button
           className="icon-button overview-card-manager"
           aria-label="Manage overview cards"
@@ -78,7 +60,11 @@ export function Overview({
           <LayoutGrid size={20} aria-hidden="true" />
         </button>
       </div>
-      {!showThisWeek && !showActiveCycle && <button className="text-button" onClick={settings}>Edit program</button>}
+      {!showThisWeek && !showActiveCycle && (
+        <button className="text-button" onClick={settings}>
+          Edit program
+        </button>
+      )}
       <section className="panel next-workout" aria-label="Next workout">
         <div className="session-status">
           <div className="session-status-copy">
@@ -93,7 +79,11 @@ export function Overview({
               </span>
             )}
           </div>
-          <Button variant="text" className="overview-cardio-action" onClick={cardio}>
+          <Button
+            variant="text"
+            className="overview-cardio-action"
+            onClick={cardio}
+          >
             <Activity size={17} aria-hidden="true" />
             Log cardio
           </Button>
@@ -150,54 +140,17 @@ export function Overview({
           <ArrowRight size={20} />
         </button>
       </section>
-      {showThisWeek && (
-        <CycleCalendar
-          state={state}
-          editProgram={settings}
-          startWorkout={start}
-          openWorkout={openWorkout}
-          addPastWorkout={addPastWorkout}
-        />
-      )}
-      {showActiveCycle && (
-        <ActiveCycleCard
-          state={state}
-          editProgram={settings}
-        />
-      )}
-      <Dialog
-        open={manageCardsOpen}
-        title="Overview cards"
-        onClose={() => setManageCardsOpen(false)}
-        compact
-      >
-        <div className="overview-card-option">
-          <div>
-            <strong>This week</strong>
-            <small>Four lifts and week browsing</small>
-          </div>
-          <Button
-            variant="icon"
-            aria-label={`${showThisWeek ? "Remove" : "Add"} This week card`}
-            onClick={() => setCardVisibility(thisWeekCardKey, !showThisWeek)}
-          >
-            {showThisWeek ? <Minus size={19} aria-hidden="true" /> : <Plus size={19} aria-hidden="true" />}
-          </Button>
-        </div>
-        <div className="overview-card-option">
-          <div>
-            <strong>Active cycle</strong>
-            <small>Top sets across three weeks</small>
-          </div>
-          <Button
-            variant="icon"
-            aria-label={`${showActiveCycle ? "Remove" : "Add"} Active cycle card`}
-            onClick={() => setCardVisibility(activeCycleCardKey, !showActiveCycle)}
-          >
-            {showActiveCycle ? <Minus size={19} aria-hidden="true" /> : <Plus size={19} aria-hidden="true" />}
-          </Button>
-        </div>
-      </Dialog>
+      <DashboardCards
+        page="overview"
+        state={state}
+        cards={cards}
+        pickerOpen={manageCardsOpen}
+        closePicker={() => setManageCardsOpen(false)}
+        editProgram={settings}
+        start={start}
+        openWorkout={openWorkout}
+        addPastWorkout={addPastWorkout}
+      />
     </div>
   );
 }

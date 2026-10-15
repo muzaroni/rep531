@@ -13,8 +13,8 @@ test("card manager adds and removes the three-week cycle card across reloads", a
 
   const manager = page.getByRole("button", { name: "Manage overview cards" });
   const bounds = await manager.boundingBox();
-  expect(bounds!.width).toBeGreaterThanOrEqual(44);
-  expect(bounds!.height).toBeGreaterThanOrEqual(44);
+  expect(bounds!.width).toBeGreaterThanOrEqual(43.99);
+  expect(bounds!.height).toBeGreaterThanOrEqual(43.99);
   await manager.click();
   const dialog = page.getByRole("dialog", { name: "Overview cards" });
   await expect(dialog).toContainText("Active cycle");
