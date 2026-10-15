@@ -6,8 +6,35 @@ import {
   lifts,
   stateSchema,
 } from "./model";
-import { calendarDate, calendarDay } from "./calendar";
-import { canFinishWorkout, finishWorkout, makeWorkout } from "./calculations";
+import { calendarDate, calendarDay, calendarWeek, shiftDay } from "./calendar";
+import {
+  canFinishWorkout,
+  finishWorkout,
+  makeWorkout,
+  nextTrainingDay,
+} from "./calculations";
+
+export function nextCatchUpSession(
+  state: AppState,
+  previous?: Workout,
+  now = new Date(),
+) {
+  const week = Math.floor(state.position / 4) + 1;
+  const lift = state.settings.order[state.position % 4];
+  const date =
+    state.position > 0
+      ? calendarWeek(state, week, now).slots[state.position % 4].date
+      : previous
+        ? calendarDate(
+            nextTrainingDay(
+              state.settings.days,
+              state.position,
+              shiftDay(calendarDay(calendarDate(previous.date)), 1),
+            ),
+          )
+        : calendarDate(now);
+  return { cycle: state.cycle, week, lift, date };
+}
 
 export function workoutWithDate(
   workout: Workout,
@@ -21,11 +48,27 @@ export function workoutWithDate(
 
 export function createPastWorkout(
   state: AppState,
-  input: { date: string; cycle: number; week: number; lift: Lift },
+  input: {
+    date: string;
+    cycle: number;
+    week: number;
+    lift: Lift;
+    mode?: "history" | "catch-up";
+  },
   now = new Date(),
 ): Workout {
   if (state.pastWorkout)
     throw new Error("Resume or discard your existing past workout first.");
+  if (
+    input.mode === "catch-up" &&
+    (state.active ||
+      input.cycle !== state.cycle ||
+      (input.week - 1) * 4 + state.settings.order.indexOf(input.lift) < state.position ||
+      (state.settings.skipDeload && input.week === 4))
+  )
+    throw new Error(
+      "Choose your next program session or a later session in this cycle, with no workout active.",
+    );
   if (
     !Number.isInteger(input.cycle) ||
     input.cycle < 1 ||
@@ -45,7 +88,7 @@ export function createPastWorkout(
   return {
     ...workoutWithDate(workout, input.date, now),
     startedAt: undefined,
-    historyOnly: true,
+    historyOnly: input.mode !== "catch-up",
   };
 }
 
@@ -55,8 +98,11 @@ export function canAdvancePastWorkout(state: AppState): boolean {
     !!workout &&
     !state.active &&
     workout.cycle === state.cycle &&
-    workout.week === Math.floor(state.position / 4) + 1 &&
-    workout.lift === state.settings.order[state.position % 4]
+    ((workout.week === Math.floor(state.position / 4) + 1 &&
+      workout.lift === state.settings.order[state.position % 4]) ||
+      (workout.historyOnly === false &&
+        (workout.week - 1) * 4 + state.settings.order.indexOf(workout.lift) >= state.position &&
+        !(state.settings.skipDeload && workout.week === 4)))
   );
 }
 
@@ -67,6 +113,10 @@ export function savePastWorkout(
 ): AppState {
   if (state.pastWorkout?.completedAt)
     throw new Error("This workout is already completed.");
+  if (state.pastWorkout?.historyOnly === false && !advance)
+    throw new Error(
+      "Switch this draft to history only before saving without advancing.",
+    );
   if (!state.pastWorkout || !canFinishWorkout(state.pastWorkout))
     throw new Error("Complete the main and BBB sets before saving.");
   const workout = workoutWithDate(
@@ -84,6 +134,7 @@ export function savePastWorkout(
     return stateSchema.parse(
       finishWorkout({
         ...state,
+        position: (workout.week - 1) * 4 + state.settings.order.indexOf(workout.lift),
         pastWorkout: null,
         active: { ...workout, historyOnly: false },
       }),

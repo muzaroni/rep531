@@ -3,7 +3,7 @@ import { SaveToast } from "./components/SaveToast";
 import { InitialSetup } from "./components/InitialSetup";
 import { needsInitialSetup } from "./domain/initialSetup";
 import { CycleSetup } from "./components/CycleSetup";
-import { needsCycleSetup, startCycle } from "./domain/cycleSetup";
+import { confirmCycleSettings, needsCycleSetup, startCycle } from "./domain/cycleSetup";
 import { useRestTimer } from "./hooks/useRestTimer";
 import { timerClock } from "./domain/restTimer";
 import { useScreenWakeLock } from "./hooks/useScreenWakeLock";
@@ -11,6 +11,7 @@ import { HistoryWorkout } from "./components/HistoryWorkout";
 import {
   correctHistoryWorkout,
   discardActiveWorkout,
+  deleteHistoryWorkout,
 } from "./domain/workoutCorrections";
 import { CardioLogger } from "./components/CardioLogger";
 import { syncWorkoutAccessories } from "./domain/workoutAccessories";
@@ -18,8 +19,11 @@ import { editableWorkoutsInPreferredUnits } from "./domain/workoutUnits";
 import {
   createPastWorkout,
   moveHistoryWorkoutDate,
+  nextCatchUpSession,
 } from "./domain/pastWorkouts";
+import { calendarDate } from "./domain/calendar";
 import { PastWorkoutSetup } from "./components/PastWorkoutSetup";
+import { CatchUpReview } from "./components/CatchUpReview";
 import { PastWorkoutEditor } from "./components/PastWorkoutEditor";
 import { Overview } from "./components/Overview";
 import { useEffect, useRef, useState } from "react";
@@ -61,8 +65,11 @@ import { Settings } from "./components/Settings";
 import { Workout } from "./components/Workout";
 import { History } from "./components/History";
 import { RestTimer } from "./components/Timer";
-type Page = "dashboard" | "workout" | "history" | "settings" | "past-workout" | "program";
+type Page = "dashboard" | "workout" | "history" | "settings" | "past-workout" | "past-setup" | "catch-up-review" | "program";
 export default function App() {
+  const pastSetupReturn = useRef<Page>("history");
+  const cycleSetupPurpose = useRef<"workout" | "catch-up">("workout");
+  const pendingCatchUpInput = useRef<Parameters<typeof createPastWorkout>[1] | null>(null);
   const settingsFlushRef = useRef<(() => void) | null>(null);
   const [state, setState] = useState<AppState>(defaults),
     stateRef = useRef(state),
@@ -75,7 +82,9 @@ export default function App() {
     [pastSetup, setPastSetup] = useState<{
       date?: string;
       seed?: WorkoutType;
+      mode?: "history" | "catch-up";
     } | null>(null),
+    [catchUpSaved, setCatchUpSaved] = useState<WorkoutType | null>(null),
     [initialSetup, setInitialSetup] = useState(false),
     [cycleSetup, setCycleSetup] = useState(false),
     [cardio, setCardio] = useState(false);
@@ -211,6 +220,8 @@ export default function App() {
     }
   };
   const start = () => {
+    cycleSetupPurpose.current = "workout";
+    pendingCatchUpInput.current = null;
     if (needsInitialSetup(stateRef.current)) {
       setInitialSetup(true);
       return;
@@ -232,11 +243,16 @@ export default function App() {
     void navigator.storage?.persist?.();
   };
   const addPastWorkout = (date?: string, seed?: WorkoutType) => {
+    pastSetupReturn.current = page === "dashboard" ? "dashboard" : "history";
     setView(null);
     if (state.pastWorkout) {
       setPage("past-workout");
       window.scrollTo(0, 0);
-    } else setPastSetup({ date, seed });
+    } else {
+      setPastSetup({ date, seed });
+      setPage("past-setup");
+      window.scrollTo(0, 0);
+    }
   };
   const rest = (kind: WorkoutSet["kind"], setId: string) => {
     const current = stateRef.current;
@@ -252,6 +268,7 @@ export default function App() {
     else timer.stop();
   };
   const navigate = (p: Page) => {
+    if (p !== "past-setup") setPastSetup(null);
     settingsFlushRef.current?.();
     timer.setOpen(false);
     const current = stateRef.current;
@@ -308,7 +325,7 @@ export default function App() {
             <button
               key={n.id}
               className={
-                page === n.id || (n.id === "history" && page === "past-workout") || (n.id === "dashboard" && page === "program")
+                page === n.id || (n.id === "history" && (page === "past-workout" || page === "past-setup" || page === "catch-up-review")) || (n.id === "dashboard" && page === "program")
                   ? "active"
                   : ""
               }
@@ -419,6 +436,10 @@ export default function App() {
                 key={view.id}
                 workout={view}
                 settings={state.settings}
+                remove={() => {
+                  commit(deleteHistoryWorkout(stateRef.current, view.id));
+                  setView(null);
+                }}
                 save={(edited) => {
                   const next = correctHistoryWorkout(
                     stateRef.current,
@@ -473,8 +494,46 @@ export default function App() {
               state={state}
               commit={commit}
               back={() => navigate("history")}
+              caughtUp={(next,workout) => {
+                commit(next);
+                setCatchUpSaved(workout);
+                setPage("catch-up-review");
+                window.scrollTo(0,0);
+              }}
             />
           )}
+          {page === "past-setup" && pastSetup && (
+            <PastWorkoutSetup
+              state={state}
+              {...pastSetup}
+              close={() => {
+                setPastSetup(null);
+                setPage(pastSetupReturn.current);
+                window.scrollTo(0, 0);
+              }}
+              create={input => {
+                if (input.mode === "catch-up" && needsCycleSetup(stateRef.current)) {
+                  pendingCatchUpInput.current = input;
+                  cycleSetupPurpose.current = "catch-up";
+                  setCycleSetup(true);
+                  return;
+                }
+                const pastWorkout = createPastWorkout(stateRef.current, input);
+                commit({ ...stateRef.current, pastWorkout });
+                setPastSetup(null);
+                setPage("past-workout");
+                window.scrollTo(0, 0);
+              }}
+            />
+          )}
+          {page === "catch-up-review" && catchUpSaved && <CatchUpReview state={state} previous={catchUpSaved} done={() => navigate("dashboard")} addNext={() => {
+            const next = nextCatchUpSession(stateRef.current,catchUpSaved);
+            const today = calendarDate(new Date());
+            pastSetupReturn.current = "catch-up-review";
+            setPastSetup({mode:"catch-up",date:next.date <= today ? next.date : today});
+            setPage("past-setup");
+            window.scrollTo(0,0);
+          }}/>}
         </div>
       </main>
       {page !== "settings" && page !== "program" && (
@@ -505,28 +564,26 @@ export default function App() {
       {cycleSetup && (
         <CycleSetup
           state={state}
+          catchUp={cycleSetupPurpose.current === "catch-up"}
           close={() => setCycleSetup(false)}
           start={(maxes, variant) => {
+            if (cycleSetupPurpose.current === "catch-up" && pendingCatchUpInput.current) {
+              const reviewed = confirmCycleSettings(stateRef.current, maxes, variant);
+              const pastWorkout = createPastWorkout(reviewed, pendingCatchUpInput.current);
+              commit({...reviewed,pastWorkout});
+              pendingCatchUpInput.current = null;
+              setPastSetup(null);
+              setCycleSetup(false);
+              setPage("past-workout");
+              window.scrollTo(0,0);
+              return;
+            }
             const next = startCycle(stateRef.current, maxes, variant);
             commit(next);
             setCycleSetup(false);
             setPage("workout");
             setView(null);
             void navigator.storage?.persist?.();
-          }}
-        />
-      )}
-      {pastSetup && (
-        <PastWorkoutSetup
-          state={state}
-          {...pastSetup}
-          close={() => setPastSetup(null)}
-          create={(input) => {
-            const pastWorkout = createPastWorkout(stateRef.current, input);
-            commit({ ...stateRef.current, pastWorkout });
-            setPastSetup(null);
-            setPage("past-workout");
-            window.scrollTo(0, 0);
           }}
         />
       )}

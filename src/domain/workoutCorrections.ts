@@ -14,6 +14,15 @@ export function discardActiveWorkout(state: AppState): AppState {
   return { ...state, active: null };
 }
 
+export function deleteHistoryWorkout(state: AppState, id: string): AppState {
+  if (!state.history.some(record => record.id === id && record.completedAt))
+    throw new Error("Completed workout not found.");
+  return stateSchema.parse({
+    ...state,
+    history: state.history.filter(record => record.id !== id),
+  });
+}
+
 // Apply explicit corrections only, retaining untouched original-unit values.
 export function correctHistoryWorkout(
   state: AppState,

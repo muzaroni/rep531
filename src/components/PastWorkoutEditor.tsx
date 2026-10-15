@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { type AppState } from "../domain/model";
+import {
+  type AppState,
+  type Workout as WorkoutSnapshot,
+} from "../domain/model";
 import { canAdvancePastWorkout, savePastWorkout } from "../domain/pastWorkouts";
 import { Workout } from "./Workout";
 
@@ -7,20 +10,22 @@ export function PastWorkoutEditor({
   state,
   commit,
   back,
+  caughtUp,
 }: {
   state: AppState;
   commit: (state: AppState) => void;
   back: () => void;
+  caughtUp: (next: AppState, workout: WorkoutSnapshot) => void;
 }) {
-  const [advance, setAdvance] = useState(false);
   const [error, setError] = useState("");
   if (!state.pastWorkout) return null;
+  const advance = state.pastWorkout.historyOnly === false;
   const eligible = canAdvancePastWorkout(state);
   return (
     <>
       <section className="panel past-workout-options">
         <div className="section-heading">
-          <h2>Past workout</h2>
+          <h2>{advance ? "Catch up my program" : "Past workout"}</h2>
           <button
             className="text-button"
             onClick={() => {
@@ -63,14 +68,24 @@ export function PastWorkoutEditor({
           </span>
           <input
             type="checkbox"
-            checked={advance && eligible}
-            disabled={!eligible}
-            onChange={(event) => setAdvance(event.target.checked)}
+            checked={advance}
+            disabled={!eligible && !advance}
+            onChange={(event) =>
+              commit({
+                ...state,
+                pastWorkout: {
+                  ...state.pastWorkout!,
+                  historyOnly: !event.target.checked,
+                },
+              })
+            }
           />
         </label>
         <p className="subtle">
-          {advance && eligible
-            ? "Saving advances progress once, including any enabled cycle increase."
+          {advance
+            ? eligible
+              ? `Saving continues your program after Cycle ${state.pastWorkout.cycle}, Week ${state.pastWorkout.week}, this lift. Earlier history stays unchanged. Any enabled increase applies only at cycle completion.`
+              : "This draft must match your next session with no workout active. You can switch to history only."
             : "Saving adds history only; cycle progress and training maxes stay unchanged."}
         </p>
       </section>
@@ -86,8 +101,16 @@ export function PastWorkoutEditor({
         update={(pastWorkout) => commit({ ...state, pastWorkout })}
         finish={() => {
           try {
-            commit(savePastWorkout(state, advance && eligible));
-            back();
+            if (advance && !eligible)
+              throw new Error(
+                "This draft must match your next program session. Finish or discard any active workout, or switch this draft to history only.",
+              );
+            const next = savePastWorkout(state, advance && eligible);
+            if (advance && eligible) caughtUp(next, state.pastWorkout!);
+            else {
+              commit(next);
+              back();
+            }
           } catch (error) {
             setError(
               error instanceof Error

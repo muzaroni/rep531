@@ -11,8 +11,10 @@ export function CycleSetup({
   state,
   close,
   start,
+  catchUp = false,
 }: {
   state: AppState;
+  catchUp?: boolean;
   close: () => void;
   start: (
     maxes: AppState["settings"]["maxes"],
@@ -129,7 +131,7 @@ export function CycleSetup({
             Cancel
           </button>
           <button className="primary" type="submit">
-            Start cycle {state.cycle}
+            {catchUp ? "Continue catch-up" : `Start cycle ${state.cycle}`}
           </button>
         </div>
       </form>

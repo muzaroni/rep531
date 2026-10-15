@@ -20,7 +20,10 @@ test("correcting a completed date updates the calendar and survives reload witho
   };
   await click("History");
   await click("Add past workout");
-  await page.getByRole("dialog").getByLabel("Workout date").fill("2026-10-06");
+  await page
+    .getByRole("region", { name: "Add past workout" })
+    .getByLabel("Workout date")
+    .fill("2026-10-06");
   await click("Create past workout");
   await page.getByLabel("Count as next program workout").check();
   await click("Mark main & BBB complete");
@@ -89,7 +92,7 @@ test("past draft survives reload, preserves the active workout and saves on its 
   await page.getByLabel("Workout date", { exact: true }).fill("2026-10-09");
   await click("History");
   await click("Add past workout");
-  const dialog = page.getByRole("dialog", { name: "Add past workout" });
+  const dialog = page.getByRole("region", { name: "Add past workout" });
   await dialog.getByLabel("Workout date").fill("2026-10-06");
   await dialog.getByLabel("Lift", { exact: true }).selectOption("bench");
   await dialog.screenshot({ path: "test-results/past-workout-setup.png" });
@@ -151,7 +154,7 @@ test("calendar seeds the chosen past session and opt-in completion advances once
     .getByRole("button", { name: /Squat · Next · main sets .* · show details/ })
     .click();
   await click("Log this past session");
-  const dialog = page.getByRole("dialog", { name: "Add past workout" });
+  const dialog = page.getByRole("region", { name: "Add past workout" });
   await expect(dialog.getByLabel("Lift", { exact: true })).toHaveValue("squat");
   await expect(dialog.getByLabel("Workout date")).toHaveValue("2026-10-05");
   await dialog.getByLabel("Workout date").fill("2026-10-02");

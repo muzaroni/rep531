@@ -53,6 +53,15 @@
   color: var(--text);
   box-shadow: 0 12px 32px #0009;
 }
+.date-picker-inline {
+  align-self: center;
+  width: 318px;
+  max-width: calc(100vw - 2px);
+  padding: 4px;
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  background: var(--panel);
+}
 .rep-calendar {
   --rdp-accent-color: var(--accent);
   --rdp-accent-background-color: var(--role-action-container);

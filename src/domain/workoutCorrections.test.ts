@@ -5,12 +5,29 @@ import { workoutInPreferredUnits } from "./workoutUnits";
 import {
   correctHistoryWorkout,
   discardActiveWorkout,
+  deleteHistoryWorkout,
 } from "./workoutCorrections";
 import { exportBackup, parseBackup } from "../data/storage";
 import { addWorkoutAccessory } from "./addWorkoutAccessory";
 import { accessoryGroupKey, changeAccessorySetCount } from "./accessorySets";
 
 describe("workout corrections", () => {
+  it("deletes only the chosen saved record without rewinding progress or modifying drafts", () => {
+    const state = defaults();
+    const first = { ...makeWorkout(state), completedAt: new Date().toISOString() };
+    const second = { ...makeWorkout(state), completedAt: new Date().toISOString(), historyOnly: true };
+    state.history = [first, second];
+    state.position = 6;
+    state.active = makeWorkout(state);
+    state.pastWorkout = { ...makeWorkout(state), historyOnly: true };
+    const before = structuredClone(state);
+    const next = deleteHistoryWorkout(state, first.id);
+    expect(next).toEqual({ ...state, history: [second] });
+    expect(state).toEqual(before);
+    expect(deleteHistoryWorkout(next, second.id).history).toEqual([]);
+    expect(parseBackup(exportBackup(next))).toEqual(next);
+    expect(() => deleteHistoryWorkout(next, first.id)).toThrow("Completed workout not found");
+  });
   it("adds and removes historical accessories without changing program data or original-unit performance", () => {
     const state = defaults();
     const original = { ...makeWorkout(state), completedAt: new Date().toISOString() };

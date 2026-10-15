@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type InputHTMLAttributes } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type InputHTMLAttributes,
+} from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { CalendarDays } from "lucide-react";
 import { Calendar } from "./calendar";
@@ -13,6 +19,7 @@ type Props = Omit<
   value?: string;
   defaultValue?: string;
   max?: string;
+  inline?: boolean;
   onChange?: (value: string) => void;
 };
 function localDate(value: string): Date | undefined {
@@ -27,6 +34,7 @@ export function DatePicker({
   onChange,
   max,
   disabled,
+  inline = false,
   ...props
 }: Props) {
   const [localValue, setLocalValue] = useState(value ?? defaultValue);
@@ -35,6 +43,8 @@ export function DatePicker({
   const current = localValue;
   const selected = localDate(current);
   const latest = max ? localDate(max) : undefined;
+  const calendarId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (value !== undefined) setLocalValue(value);
   }, [value]);
@@ -58,6 +68,38 @@ export function DatePicker({
     setLocalValue(next);
     if (localDate(next)) onChange?.(next);
   };
+  const trigger = (
+    <Button
+      ref={triggerRef}
+      variant="ghost"
+      size="icon"
+      className="date-picker-trigger"
+      disabled={disabled}
+      aria-label="Choose date"
+      aria-expanded={inline ? open : undefined}
+      aria-controls={inline ? calendarId : undefined}
+      onClick={inline ? () => setOpen(!open) : undefined}
+    >
+      <CalendarDays size={18} aria-hidden="true" />
+    </Button>
+  );
+  const calendar = (
+    <Calendar
+      mode="single"
+      required
+      selected={selected}
+      defaultMonth={selected}
+      autoFocus
+      disabled={latest ? { after: latest } : undefined}
+      onSelect={(date) => {
+        if (date) {
+          change(calendarDate(date));
+          setOpen(false);
+          if (inline) triggerRef.current?.focus();
+        }
+      }}
+    />
+  );
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <div className="date-picker-field">
@@ -76,41 +118,42 @@ export function DatePicker({
           }}
           onChange={(event) => change(event.target.value)}
         />
-        <Popover.Trigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="date-picker-trigger"
-            disabled={disabled}
-            aria-label="Choose date"
-          >
-            <CalendarDays size={18} aria-hidden="true" />
-          </Button>
-        </Popover.Trigger>
+        {inline ? (
+          trigger
+        ) : (
+          <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+        )}
       </div>
-      <Popover.Content
-        className="date-picker-popover"
-        align="end"
-        sideOffset={6}
-        collisionPadding={1}
-        aria-label="Choose date"
-        onEscapeKeyDown={(event) => event.stopPropagation()}
-      >
-        <Calendar
-          mode="single"
-          required
-          selected={selected}
-          defaultMonth={selected}
-          autoFocus
-          disabled={latest ? { after: latest } : undefined}
-          onSelect={(date) => {
-            if (date) {
-              change(calendarDate(date));
-              setOpen(false);
-            }
-          }}
-        />
-      </Popover.Content>
+      {inline ? (
+        open && (
+          <div
+            id={calendarId}
+            role="region"
+            aria-label="Choose date"
+            className="date-picker-inline"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                setOpen(false);
+                triggerRef.current?.focus();
+              }
+            }}
+          >
+            {calendar}
+          </div>
+        )
+      ) : (
+        <Popover.Content
+          className="date-picker-popover"
+          align="end"
+          sideOffset={6}
+          collisionPadding={1}
+          aria-label="Choose date"
+          onEscapeKeyDown={(event) => event.stopPropagation()}
+        >
+          {calendar}
+        </Popover.Content>
+      )}
     </Popover.Root>
   );
 }

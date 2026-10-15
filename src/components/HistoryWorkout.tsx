@@ -8,12 +8,14 @@ export function HistoryWorkout({
   settings,
   save,
   changeDate,
+  remove,
   back,
 }: {
   workout: WorkoutType;
   settings: Settings;
   save: (edited: WorkoutType) => void;
   changeDate: (date: string) => void;
+  remove: () => void;
   back: () => void;
 }) {
   const [draft, setDraft] = useState<WorkoutType | null>(null);
@@ -65,6 +67,21 @@ export function HistoryWorkout({
         back={back}
         onCompleteSet={() => {}}
       />
+      {!draft && (
+        <button
+          className="text-button danger full"
+          onClick={() => {
+            if (!confirm("Delete this saved workout? This removes its performance from History, charts and calendars. Cycle progress and training maxes stay unchanged. This cannot be undone without a backup.")) return;
+            try {
+              remove();
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not delete workout.");
+            }
+          }}
+        >
+          Delete workout
+        </button>
+      )}
     </>
   );
 }

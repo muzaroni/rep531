@@ -29,10 +29,13 @@ function currentCycleHistory(state: AppState): Workout[] {
     .slice(-state.position);
 }
 
-// The optional overview card tracks only workouts that advanced this run's
-// cursor. Retrospective history-only entries never mark a program slot done.
+// Show recorded performance, including retrospective entries, without changing
+// program progress. Retained program history still respects the current run.
 export function activeCyclePlan(state: AppState) {
-  const completed = currentCycleHistory(state);
+  const completed = [
+    ...currentCycleHistory(state),
+    ...state.history.filter(workout => workout.historyOnly && workout.cycle === state.cycle && workout.completedAt),
+  ].sort((a, b) => Date.parse(a.completedAt!) - Date.parse(b.completedAt!));
   return [1, 2, 3].map((week) => ({
     week,
     slots: state.settings.order.map((lift, index) => {
@@ -43,7 +46,7 @@ export function activeCyclePlan(state: AppState) {
           (workout) =>
             workout.week === week &&
             workout.lift === lift &&
-            position < state.position,
+            (workout.historyOnly || position < state.position),
         );
       const active =
         state.active?.cycle === state.cycle &&

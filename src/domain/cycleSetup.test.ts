@@ -11,6 +11,7 @@ import {
   needsCycleSetup,
   previousCycleMaxes,
   startCycle,
+  confirmCycleSettings,
 } from "./cycleSetup";
 import { exportBackup, parseBackup } from "../data/storage";
 function rollover(autoIncrease = true, skipDeload = false) {
@@ -25,6 +26,21 @@ function rollover(autoIncrease = true, skipDeload = false) {
   return finishWorkout(state);
 }
 describe("cycle setup", () => {
+  it("can confirm a catch-up cycle without starting a live workout or increasing maxes twice", () => {
+    const state = rollover();
+    const before = structuredClone(state);
+    const reviewed = confirmCycleSettings(
+      state,
+      cycleMaxes(state, "increase", state.settings.maxes),
+      "swap",
+    );
+    expect(reviewed.active).toBeNull();
+    expect(reviewed.position).toBe(0);
+    expect(reviewed.settings.maxes).toEqual(state.settings.maxes);
+    expect(reviewed.cycleSetup?.confirmed).toBe(true);
+    expect(reviewed.settings.cycleVariants[2]).toBe("swap");
+    expect(state).toEqual(before);
+  });
   it("reviews rollover suggestions without applying increases twice", () => {
     const state = rollover();
     expect(needsCycleSetup(defaults())).toBe(false);

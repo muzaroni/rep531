@@ -1,5 +1,34 @@
 import { test, expect } from "./fixtures";
 
+test("deleting a saved workout requires confirmation and persists without rewinding progress", async ({ page }) => {
+  await page.goto("./");
+  const click = (name: string) => page.getByRole("button", { name, exact: true }).click();
+  await click("History");
+  await click("Add past workout");
+  await click("Create past workout");
+  await page.getByLabel("Count as next program workout").check();
+  await click("Mark main & BBB complete");
+  await click("Save past workout");
+  await click("Continue from here");
+  await click("History");
+  await page.locator(".history-row").first().click();
+  page.once("dialog", dialog => dialog.dismiss());
+  await click("Delete workout");
+  await expect(page.getByRole("button", { name: "Edit workout", exact: true })).toBeVisible();
+  page.once("dialog", async dialog => {
+    expect(dialog.message()).toContain("Cycle progress and training maxes stay unchanged");
+    await dialog.accept();
+  });
+  await click("Delete workout");
+  await expect(page.locator(".history-row")).toHaveCount(0);
+  await expect(page.getByText("Saved on device", { exact: true })).toBeVisible();
+  await page.reload();
+  await click("History");
+  await expect(page.locator(".history-row")).toHaveCount(0);
+  await click("Overview");
+  await expect(page.getByText("1 of 16 workouts", { exact: true })).toBeVisible();
+});
+
 test("discard confirms, clears the timer and draft, and keeps program progress", async ({
   page,
 }) => {

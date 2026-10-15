@@ -34,11 +34,27 @@ it("previews three training weeks using current-run completions and active snaps
     status: "in progress",
     workout: state.active,
   });
-  expect(plan[1].slots[0].status).toBe("planned");
-  expect(plan[1].slots[0].workout.historyOnly).not.toBe(true);
+  expect(plan[1].slots[0]).toMatchObject({ status: "completed", workout: historyOnly });
 
   state.active = null;
   state.position = 0;
+  expect(activeCyclePlan(state)[0].slots[0].status).toBe("planned");
+});
+
+it("marks past and catch-up sessions completed in the active cycle without changing progress", () => {
+  const state = defaults();
+  const past = { ...makeWorkout(state), historyOnly: true, completedAt: new Date(2026, 9, 5, 13).toISOString() };
+  const catchUp = { ...makeWorkout({ ...state, position: 4 }), historyOnly: false, completedAt: new Date(2026, 9, 12, 13).toISOString() };
+  const otherCycle = { ...makeWorkout({ ...state, cycle: 2, position: 1 }), historyOnly: true, completedAt: new Date(2026, 9, 13, 13).toISOString() };
+  state.history = [past, catchUp, otherCycle];
+  state.position = 5;
+  const before = structuredClone(state);
+  const plan = activeCyclePlan(state);
+  expect(plan[0].slots[0]).toMatchObject({ status: "completed", workout: past });
+  expect(plan[1].slots[0]).toMatchObject({ status: "completed", workout: catchUp });
+  expect(plan[0].slots[1].status).toBe("planned");
+  expect(state).toEqual(before);
+  state.history = state.history.filter(workout => workout.id !== past.id);
   expect(activeCyclePlan(state)[0].slots[0].status).toBe("planned");
 });
 

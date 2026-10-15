@@ -51,7 +51,7 @@ export function cycleMaxes(
     ]),
   ) as Settings["maxes"];
 }
-export function startCycle(
+export function confirmCycleSettings(
   state: AppState,
   maxes: Settings["maxes"],
   variant: "normal" | "swap",
@@ -77,5 +77,13 @@ export function startCycle(
       confirmed: true,
     },
   };
+  return stateSchema.parse(next);
+}
+export function startCycle(
+  state: AppState,
+  maxes: Settings["maxes"],
+  variant: "normal" | "swap",
+): AppState {
+  const next = confirmCycleSettings(state, maxes, variant);
   return stateSchema.parse({ ...next, active: makeWorkout(next) });
 }

@@ -8,6 +8,7 @@ import {
   createPastWorkout,
   savePastWorkout,
   workoutWithDate,
+  nextCatchUpSession,
 } from "./pastWorkouts";
 
 const now = new Date(2026, 9, 10, 12);
@@ -22,6 +23,90 @@ const completeRequired = (state: ReturnType<typeof defaults>) =>
     });
 
 describe("past workout logging", () => {
+  it("catches up six dated sessions and continues at week two Deadlift, surviving backup restore", async () => {
+    let state = defaults();
+    const current = new Date(2026, 9, 14, 12);
+    const dates = [
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-12",
+      "2026-10-13",
+    ];
+    for (const date of dates) {
+      const session = nextCatchUpSession(state, undefined, current);
+      state.pastWorkout = createPastWorkout(
+        state,
+        { ...session, date, mode: "catch-up" },
+        current,
+      );
+      expect(state.pastWorkout.historyOnly).toBe(false);
+      completeRequired(state);
+      state = savePastWorkout(state, true, current);
+    }
+    expect([
+      state.cycle,
+      state.position,
+      state.active,
+      state.pastWorkout,
+    ]).toEqual([1, 6, null, null]);
+    expect(state.history.map((workout) => calendarDate(workout.date))).toEqual(
+      dates,
+    );
+    expect(
+      state.history.every((workout) => workout.historyOnly === false),
+    ).toBe(true);
+    expect(nextCatchUpSession(state, undefined, current)).toEqual({
+      cycle: 1,
+      week: 2,
+      lift: "deadlift",
+      date: "2026-10-15",
+    });
+    const { exportBackup, parseBackup } = await import("../data/storage");
+    expect(
+      nextCatchUpSession(parseBackup(exportBackup(state)), undefined, current),
+    ).toEqual(nextCatchUpSession(state, undefined, current));
+  });
+  it("rejects backwards catch-up and active workouts while retaining history-only logging", () => {
+    const state = defaults();
+    state.position = 2;
+    expect(() =>
+      createPastWorkout(
+        state,
+        { ...input, lift: "bench", mode: "catch-up" },
+        now,
+      ),
+    ).toThrow(/next program session/);
+    state.active = makeWorkout(state);
+    const before = structuredClone(state);
+    expect(() =>
+      createPastWorkout(state, { ...input, mode: "catch-up" }, now),
+    ).toThrow();
+    expect(createPastWorkout(state, input, now).historyOnly).toBe(true);
+    expect(state).toEqual(before);
+  });
+  it("starts catch-up at week two after history-only week one, without changing those records or maxes", () => {
+    let state = defaults();
+    for (const lift of state.settings.order) {
+      state.pastWorkout = createPastWorkout(state, { ...input, lift }, now);
+      completeRequired(state);
+      state = savePastWorkout(state, false, now);
+    }
+    const history = structuredClone(state.history);
+    const settings = structuredClone(state.settings);
+    const before = structuredClone(state);
+    state.pastWorkout = createPastWorkout(state, { ...input, week: 2, mode: "catch-up" }, now);
+    expect(state.position).toBe(0);
+    expect(state.pastWorkout.sets.filter(set => set.kind === "working").map(set => set.target)).toEqual([3, 3, 3]);
+    completeRequired(state);
+    const next = savePastWorkout(state, true, now);
+    expect(next.position).toBe(5);
+    expect(next.history.slice(0, 4)).toEqual(history);
+    expect(next.settings).toEqual(settings);
+    expect(nextCatchUpSession(next, undefined, now)).toMatchObject({ cycle: 1, week: 2, lift: "bench" });
+    expect(before.position).toBe(0);
+  });
   it("creates an independent editable draft with current program rules and a local past date", () => {
     const state = defaults();
     state.active = makeWorkout(state);

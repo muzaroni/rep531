@@ -1,5 +1,5 @@
 import { DatePicker } from "./ui/shadcn/date-picker";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { names, type AppState, type Lift, type Workout } from "../domain/model";
 import { calendarDate } from "../domain/calendar";
@@ -11,20 +11,23 @@ export function PastWorkoutSetup({
   seed,
   create,
   close,
+  mode: initialMode = "history",
 }: {
   state: AppState;
   date?: string;
   seed?: Workout;
+  mode?: "history" | "catch-up";
   create: (input: {
     date: string;
     cycle: number;
     week: number;
     lift: Lift;
+    mode: "history" | "catch-up";
   }) => void;
   close: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const today = calendarDate(new Date());
+  const [mode, setMode] = useState(initialMode);
   const [input, setInput] = useState({
     date: date && date <= today ? date : today,
     cycle: seed?.cycle ?? state.cycle,
@@ -32,23 +35,16 @@ export function PastWorkoutSetup({
     lift: seed?.lift ?? state.settings.order[state.position % 4],
   });
   const [error, setError] = useState("");
-  useEffect(() => {
-    const element = dialog.current!;
-    element.showModal();
-  }, []);
   return (
-    <dialog
-      className="accessory-dialog past-workout-dialog"
-      ref={dialog}
-      onCancel={close}
-      onClose={close}
-      aria-labelledby="past-workout-title"
-    >
+    <section className="past-workout-setup" aria-label="Add past workout">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           try {
-            create(input);
+            const position = (input.week - 1) * 4 + state.settings.order.indexOf(input.lift);
+            if (mode === "catch-up" && position > state.position &&
+              !confirm(`Start catching up from Cycle ${input.cycle}, Week ${input.week}, ${names[input.lift]}? Saving this workout will move your program forward from there. Earlier sessions will not be created or changed. Training maxes stay unchanged unless you finish the cycle with automatic increases enabled.`)) return;
+            create({ ...input, mode });
           } catch (error) {
             setError(
               error instanceof Error
@@ -58,8 +54,13 @@ export function PastWorkoutSetup({
           }
         }}
       >
-        <div className="calendar-detail-heading">
-          <h2 id="past-workout-title">Add past workout</h2>
+        <div className="page-title">
+          <div>
+            <p className="eyebrow">TRAINING HISTORY</p>
+            <h1 id="past-workout-title">
+              Add past workout<span>.</span>
+            </h1>
+          </div>
           <button
             className="icon-button"
             type="button"
@@ -69,24 +70,62 @@ export function PastWorkoutSetup({
             <X size={18} />
           </button>
         </div>
+        <div
+          className="past-entry-modes"
+          role="group"
+          aria-label="Past workout purpose"
+        >
+          <button
+            type="button"
+            className="secondary"
+            aria-pressed={mode === "history"}
+            onClick={() => setMode("history")}
+          >
+            Add to history
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            aria-pressed={mode === "catch-up"}
+            disabled={!!state.active}
+            onClick={() => {
+              setMode("catch-up");
+              setInput((current) => ({
+                ...current,
+                cycle: state.cycle,
+                week: Math.floor(state.position / 4) + 1,
+                lift: state.settings.order[state.position % 4],
+              }));
+            }}
+          >
+            Catch up my program
+          </button>
+        </div>
         <p className="subtle">
-          Choose the session and when you did it. We’ll use your current
-          training settings; edit the sets to match what you actually lifted.
+          {mode === "catch-up"
+            ? "Choose where to start catching up. Saving moves your program forward from that session; earlier history stays unchanged."
+            : "Record a session without changing your current program."}
+          {state.active &&
+            " Finish or discard your active workout before catching up your program."}{" "}
+          Prescriptions use your current settings; edit the sets to match what
+          you actually lifted.
         </p>
-        <label className="stack-field">
-          Workout date
+        <div className="stack-field">
+          <label htmlFor="past-workout-date">Workout date</label>
           <DatePicker
-            autoFocus
+            id="past-workout-date"
+            inline
             required
             max={today}
             value={input.date}
             onChange={(date) => setInput({ ...input, date })}
           />
-        </label>
+        </div>
         <div className="past-workout-fields">
           <label className="stack-field">
             Cycle
             <NumericInput
+              disabled={mode === "catch-up"}
               min={1}
               max={state.cycle}
               value={input.cycle}
@@ -104,7 +143,7 @@ export function PastWorkoutSetup({
                 setInput({ ...input, week: Number(event.target.value) })
               }
             >
-              {[1, 2, 3, 4].map((week) => (
+              {(mode === "catch-up" && state.settings.skipDeload ? [1, 2, 3] : [1, 2, 3, 4]).map((week) => (
                 <option key={week} value={week}>
                   {week === 4 ? "4 · Deload" : week}
                 </option>
@@ -137,6 +176,6 @@ export function PastWorkoutSetup({
           Create past workout
         </button>
       </form>
-    </dialog>
+    </section>
   );
 }
