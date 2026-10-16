@@ -1,4 +1,5 @@
 import { deleteAllCycles, resetCycle } from "../domain/cycleData";
+import { useBackScreen } from "./BackNavigation";
 import { changeCycleVariation } from "../domain/changeCycleVariation";
 import { requestTimerNotifications } from "../lib/timerAlerts";
 import { syncWorkoutAccessories } from "../domain/workoutAccessories";
@@ -100,6 +101,10 @@ export function Settings({
     );
   };
   const [accessoriesOpen, setAccessoriesOpen] = useState(false);
+  useBackScreen("settings-accessories", 2, () => {
+    setAccessoriesOpen(false);
+    window.scrollTo(0, 0);
+  }, accessoriesOpen);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dataHelpOpen, setDataHelpOpen] = useState(false);
   const [variationOpen, setVariationOpen] = useState(false);

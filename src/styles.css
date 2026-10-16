@@ -65,6 +65,7 @@
 body {
   margin: 0;
 }
+.swipe-back-indicator { position: fixed; left: 0; top: calc(var(--viewport-top, 0px) + var(--viewport-height, 100dvh) / 2); z-index: 95; display: grid; place-items: center; width: 40px; height: 44px; background: var(--input); color: var(--accent); border: 1px solid var(--line); border-radius: 0 22px 22px 0; pointer-events: none; }
 button,
 input,
 select,
@@ -238,11 +239,9 @@ i {
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -281,7 +280,7 @@ main {
 .workout-elapsed svg { color: var(--accent); }
 .workout-elapsed-floating {
   position: fixed;
-  top: 0;
+  top: var(--viewport-top, 0px);
   left: 0;
   right: 0;
   z-index: 40;
@@ -2256,8 +2255,8 @@ html {
 .chart-legend {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 12px 0 4px;
+  gap: 4px;
+  margin: 6px 0 0;
 }
 .chart-legend > div {
   display: grid;
@@ -2266,31 +2265,26 @@ html {
 .chart-series-name {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
+  gap: 3px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 .chart-series-name svg {
   flex-shrink: 0;
 }
 .chart-legend strong {
-  font-size: 18px;
+  font-size: 12px;
+  white-space: nowrap;
+  font-weight: 600;
 }
 .combined-chart {
   height: auto;
   min-height: 180px;
+  cursor: crosshair;
 }
-@media (max-width: 600px) {
-  .chart-legend {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 8px;
-  }
-  .chart-series-name {
-    font-size: 13px;
-  }
-  .chart-legend strong {
-    font-size: 16px;
-  }
-}
+.chart-lift-button { display: grid; align-content: center; gap: 2px; min-height: 44px; min-width: 0; padding: 2px; text-align: left; border: 1px solid transparent; border-radius: 6px; background: transparent; }
+.chart-lift-button[aria-pressed="true"] { background: var(--surface); border-color: var(--line); }
+.chart-lift-button:hover:not(:disabled) { background: var(--surface-hover); }
 
 /* A compact session brief: light dividers, one prescription strip, no nested cards. */
 .lift-icon {
@@ -3096,7 +3090,7 @@ html {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(63px + var(--safe-area-bottom));
+  bottom: calc(63px + var(--safe-area-bottom) + var(--viewport-bottom, 0px));
   z-index: 20;
   padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   background: var(--bg);
@@ -3222,7 +3216,7 @@ html {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(63px + var(--safe-area-bottom));
+  bottom: calc(63px + var(--safe-area-bottom) + var(--viewport-bottom, 0px));
   z-index: 19;
   min-height: 44px;
   padding: 0 14px;
@@ -3403,8 +3397,8 @@ html {
     font-size: 11px;
   }
 }
-@media (min-width: 760px) {
-  .timer-reopen { bottom: 0; }
+@media (min-width: 701px) {
+  .timer-reopen { bottom: var(--viewport-bottom, 0px); }
 }
 @media (max-width: 359px) {
   .timer-controls button {
@@ -3422,12 +3416,12 @@ html {
 }
 
 body:has(.timer-sheet) .pwa-notice {
-  top: calc(12px + env(safe-area-inset-top));
+  top: calc(var(--viewport-top, 0px) + 12px + env(safe-area-inset-top));
   bottom: auto;
 }
 body:has(.workout-elapsed-floating) .save-toast,
 body:has(.workout-elapsed-floating):has(.timer-sheet) .pwa-notice {
-  top: calc(64px + env(safe-area-inset-top));
+  top: calc(var(--viewport-top, 0px) + 64px + env(safe-area-inset-top));
 }
 /* Reserve scrollable space above the floating timer and fixed navigation. */
 body:has(.timer-sheet) main,
@@ -3681,7 +3675,7 @@ body:has(.timer-sheet) .finish-button {
 @media (min-width: 701px) {
   .timer-sheet,
   :root[data-theme="horizon"] .timer-sheet {
-    bottom: 0;
+    bottom: var(--viewport-bottom, 0px);
     padding-bottom: var(--safe-area-bottom);
   }
   body:has(.timer-sheet) main,
@@ -3922,3 +3916,17 @@ body:has(.timer-sheet) .finish-button {
   .page-title h1, .overview-heading h1, .accessory-inline-title h1, .empty h1 { font-size: 30px; }
   .page-title { margin-bottom: 14px; }
 }
+
+/* Scroll the timeline inside the card; the readout stays over the plot. */
+.chart-explorer { position: relative; margin-top: 12px; min-width: 0; }
+.chart-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; touch-action: pan-x pan-y; cursor: grab; }
+.chart-scroll:active { cursor: grabbing; }
+.chart-scroll:focus-visible { outline: 2px solid var(--role-focus); outline-offset: 2px; border-radius: 6px; }
+.chart-scroll .combined-chart { display: block; max-width: none; min-height: 0; cursor: inherit; }
+.chart-timeline { padding: 0 24px 8px 44px; box-sizing: border-box; }
+.chart-tooltip { position: absolute; top: 8px; z-index: 1; width: min(200px, calc(100% - 16px)); padding: 9px 10px; background: var(--input); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px #0008; pointer-events: none; font-size: 11px; }
+.chart-tooltip time { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+.chart-tooltip > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 3px; }
+.chart-tooltip span { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+.chart-tooltip i { width: 3px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+.chart-tooltip strong { white-space: nowrap; font-variant-numeric: tabular-nums; }

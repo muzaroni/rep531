@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useBackScreen } from "./BackNavigation";
 import type { Settings, Workout as WorkoutType } from "../domain/model";
 import { workoutInPreferredUnits } from "../domain/workoutUnits";
 import { Workout } from "./Workout";
@@ -20,6 +21,12 @@ export function HistoryWorkout({
 }) {
   const [draft, setDraft] = useState<WorkoutType | null>(null);
   const [error, setError] = useState("");
+  useBackScreen(`saved-workout:${workout.id}:${draft ? "editing" : "view"}`, draft ? 3 : 2, () => {
+    if (!draft) { back(); return; }
+    if (JSON.stringify(draft) !== JSON.stringify(workoutInPreferredUnits(workout, settings)) && !confirm("Discard your unsaved workout corrections? The saved workout will stay unchanged.")) return false;
+    setDraft(null);
+    setError("");
+  });
   return (
     <>
       <div className="section-heading">

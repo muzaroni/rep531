@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Play, Pause, RotateCcw, Square } from "lucide-react";
 import type { RestTimerController } from "../hooks/useRestTimer";
 import { timerClock } from "../domain/restTimer";
@@ -110,7 +111,7 @@ export function RestTimer({ controller }: { controller: RestTimerController }) {
     setOffset(0);
     origin.current = null;
   };
-  return (
+  return createPortal(
     <section
       className="timer-sheet"
       role="dialog"
@@ -150,6 +151,7 @@ export function RestTimer({ controller }: { controller: RestTimerController }) {
         </button>
       </div>
       <TimerDisplay controller={controller} />
-    </section>
+    </section>,
+    document.body,
   );
 }

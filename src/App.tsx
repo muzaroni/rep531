@@ -1,4 +1,5 @@
 import { BrandIcon } from "./components/BrandIcon";
+import { BackNavigation } from "./components/BackNavigation";
 import { SaveToast } from "./components/SaveToast";
 import { InitialSetup } from "./components/InitialSetup";
 import { needsInitialSetup } from "./domain/initialSetup";
@@ -7,6 +8,8 @@ import { confirmCycleSettings, needsCycleSetup, startCycle } from "./domain/cycl
 import { useRestTimer } from "./hooks/useRestTimer";
 import { timerClock } from "./domain/restTimer";
 import { useScreenWakeLock } from "./hooks/useScreenWakeLock";
+import { useVisualViewport } from "./hooks/useVisualViewport";
+import { createPortal } from "react-dom";
 import { HistoryWorkout } from "./components/HistoryWorkout";
 import {
   correctHistoryWorkout,
@@ -67,6 +70,7 @@ import { History } from "./components/History";
 import { RestTimer } from "./components/Timer";
 type Page = "dashboard" | "workout" | "history" | "settings" | "past-workout" | "past-setup" | "catch-up-review" | "program";
 export default function App() {
+  useVisualViewport();
   const pastSetupReturn = useRef<Page>("history");
   const cycleSetupPurpose = useRef<"workout" | "catch-up">("workout");
   const pendingCatchUpInput = useRef<Parameters<typeof createPastWorkout>[1] | null>(null);
@@ -296,6 +300,18 @@ export default function App() {
       </div>
     );
   return (
+    <BackNavigation screen={{
+      key: `${page}:${view?.id ?? ""}`,
+      depth: page === "dashboard" ? 0 : view || page.startsWith("past-") || page === "catch-up-review" ? 2 : 1,
+      back: () => {
+        if (view) { setView(null); return; }
+        if (page === "past-setup") {
+          setPastSetup(null);
+          setPage(pastSetupReturn.current);
+          window.scrollTo(0, 0);
+        } else navigate(page === "past-workout" || page === "catch-up-review" ? "history" : "dashboard");
+      },
+    }}>
     <div className="app" data-theme="horizon">
       <div className="star-field" aria-hidden="true" />
       <header className="topbar">
@@ -540,14 +556,14 @@ export default function App() {
         <SaveToast status={saved} success="Saved on device" />
       )}
       {page === "workout" && timer.timer && !timer.open && (
-        <button
+        createPortal(<button
           className="secondary timer-reopen"
           aria-label="Open rest timer"
           onClick={() => timer.setOpen(true)}
         >
           <Clock3 size={17} />{" "}
           {timer.timer.completed ? "Rest complete" : timerClock(timer.left)}
-        </button>
+        </button>, document.body)
       )}
       <RestTimer controller={timer} />
       {initialSetup && (
@@ -605,5 +621,6 @@ export default function App() {
       )}
 
     </div>
+    </BackNavigation>
   );
 }
