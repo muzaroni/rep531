@@ -56,6 +56,16 @@ export function BackNavigation({
   const index = useRef(0);
   const ignorePop = useRef(false);
   const lastKey = useRef("");
+  const rootKey = useRef(screen.key);
+  useEffect(() => {
+    const previous = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    return () => { history.scrollRestoration = previous; };
+  }, []);
+  useEffect(() => {
+    if (rootKey.current !== screen.key) window.scrollTo(0, 0);
+    rootKey.current = screen.key;
+  }, [screen.key]);
   const marker = (position: number) => ({
     ...history.state,
     rep531Back: { session: session.current, index: position },
